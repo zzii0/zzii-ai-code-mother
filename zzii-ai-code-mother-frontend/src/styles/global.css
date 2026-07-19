@@ -1,0 +1,89 @@
+.page-container {
+  max-width: var(--page-max-width);
+  margin: 0 auto;
+  padding: var(--page-padding);
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.empty-state {
+  padding: 48px 24px;
+  background: rgba(255, 255, 255, 0.7);
+  border-radius: var(--radius-lg);
+}
+
+.auth-page {
+  min-height: calc(100vh - 160px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background:
+    radial-gradient(circle at top right, rgba(24, 144, 255, 0.12), transparent 40%),
+    radial-gradient(circle at bottom left, rgba(114, 46, 209, 0.08), transparent 35%),
+    var(--color-bg-muted);
+}
+
+.auth-card {
+  width: 100%;
+  max-width: 420px;
+  padding: 32px;
+  background: #fff;
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-md);
+  transition: box-shadow 0.3s ease;
+}
+
+.auth-card:hover {
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.1);
+}
+
+.auth-title {
+  text-align: center;
+  margin: 0 0 8px;
+  font-size: 24px;
+  color: var(--color-text);
+}
+
+.auth-desc {
+  text-align: center;
+  color: var(--color-text-secondary);
+  margin: 0 0 24px;
+}
+
+.auth-tips {
+  text-align: right;
+  color: var(--color-text-secondary);
+  font-size: 13px;
+  margin-bottom: 16px;
+}
+
+.skeleton-block {
+  width: 100%;
+  padding: 24px;
+}
+
+/* 自定义滚动条 */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.15);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 0, 0, 0.25);
+}
+
+/* 选中文本样式 */
+::selection {
+  background: rgba(24, 144, 255, 0.2);
+  color: inherit;
+}
