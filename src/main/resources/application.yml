@@ -1,11 +1,28 @@
 spring:
+  datasource:
+    url: jdbc:mysql://localhost:3306/zzii_ai_code_mother?useSSL=false&serverTimezone=UTC
+    username: root
+    password: 123456
+    driver-class-name: com.mysql.cj.jdbc.Driver
   application:
-    name: zzii-ai-code-mother-backend
+    name: zzii-ai-code-mother
+  servlet:
+    multipart:
+      max-file-size: 2MB
+      max-request-size: 2MB
+
+file:
+  upload:
+    avatar-dir: tmp/avatar
 
 server:
   port: 8123
   servlet:
     context-path: /api
+
+mybatis-flex:
+  configuration:
+    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl  # 将SQL输出到控制台[reference:3][reference:4]
 
 # springdoc-openapi
 springdoc:
