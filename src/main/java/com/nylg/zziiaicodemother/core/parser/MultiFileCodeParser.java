@@ -1,44 +1,20 @@
-package com.nylg.zziiaicodemother.core;
+package com.nylg.zziiaicodemother.core.parser;
 
 import cn.hutool.core.util.StrUtil;
 import cn.hutool.json.JSONUtil;
-import com.nylg.zziiaicodemother.ai.model.HtmlCodeResult;
 import com.nylg.zziiaicodemother.ai.model.MultiFileCodeResult;
 
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-
-/**
- * 代码解析器
- * 提供静态方法解析不同类型的代码内容
- */
-@Deprecated
-public class CodeParser {
-
+// 多文件代码解析器（HTML + CSS + JS）
+public class MultiFileCodeParser implements CodeParser<MultiFileCodeResult> {
     private static final Pattern HTML_CODE_PATTERN = Pattern.compile("```html\\s*([\\s\\S]*?)```", Pattern.CASE_INSENSITIVE);
     private static final Pattern CSS_CODE_PATTERN = Pattern.compile("```css\\s*([\\s\\S]*?)```", Pattern.CASE_INSENSITIVE);
     private static final Pattern JS_CODE_PATTERN = Pattern.compile("```(?:js|javascript)\\s*([\\s\\S]*?)(?:```|$)", Pattern.CASE_INSENSITIVE);
     private static final Pattern RAW_HTML_PATTERN = Pattern.compile("(?is)(<!DOCTYPE html[\\s\\S]*?</html>|<html[\\s\\S]*?</html>)");
 
-    /**
-     * 解析 HTML 单文件代码
-     */
-    public static HtmlCodeResult parseHtmlCode(String codeContent) {
-        HtmlCodeResult result = new HtmlCodeResult();
-        String htmlCode = extractCodeByPattern(codeContent, HTML_CODE_PATTERN);
-        if (StrUtil.isNotBlank(htmlCode)) {
-            result.setHtmlCode(htmlCode.trim());
-        } else {
-            String rawHtml = extractRawHtml(codeContent);
-            result.setHtmlCode(StrUtil.isNotBlank(rawHtml) ? rawHtml.trim() : codeContent.trim());
-        }
-        return result;
-    }
-
-    /**
-     * 解析多文件代码（HTML + CSS + JS）
-     */
-    public static MultiFileCodeResult parseMultiFileCode(String codeContent) {
+    @Override
+    public MultiFileCodeResult parseCode(String codeContent) {
         if (StrUtil.isBlank(codeContent)) {
             return new MultiFileCodeResult();
         }
@@ -111,4 +87,5 @@ public class CodeParser {
         }
         return null;
     }
+
 }
