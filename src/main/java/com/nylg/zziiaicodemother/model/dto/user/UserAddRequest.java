@@ -1,4 +1,4 @@
-package com.nylg.zziiaicodemother.model.dto;
+package com.nylg.zziiaicodemother.model.dto.user;
 
 import lombok.Data;
 
@@ -6,7 +6,7 @@ import java.io.Serial;
 import java.io.Serializable;
 
 @Data
-public class UserUpdateMyRequest implements Serializable {
+public class UserAddRequest implements Serializable {
 
     /**
      * 用户昵称
@@ -14,15 +14,24 @@ public class UserUpdateMyRequest implements Serializable {
     private String userName;
 
     /**
+     * 账号
+     */
+    private String userAccount;
+
+    /**
      * 用户头像
      */
     private String userAvatar;
 
     /**
-     * 简介
+     * 用户简介
      */
     private String userProfile;
 
+    /**
+     * 用户角色: user, admin
+     */
+    private String userRole;
     @Serial
     private static final long serialVersionUID = 1L;
 }
