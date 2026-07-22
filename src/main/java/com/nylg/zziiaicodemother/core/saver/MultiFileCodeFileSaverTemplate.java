@@ -7,7 +7,6 @@ import com.nylg.zziiaicodemother.exception.ErrorCode;
 import com.nylg.zziiaicodemother.model.enums.CodeGenTypeEnum;
 
 /**
- * HTML代码文件保存器
  */
 public class MultiFileCodeFileSaverTemplate extends CodeFileSaverTemplate<MultiFileCodeResult>{
     @Override
