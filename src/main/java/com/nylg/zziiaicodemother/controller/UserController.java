@@ -11,15 +11,12 @@ import com.nylg.zziiaicodemother.constant.UserConstant;
 import com.nylg.zziiaicodemother.exception.BusinessException;
 import com.nylg.zziiaicodemother.exception.ErrorCode;
 import com.nylg.zziiaicodemother.exception.ThrowUtils;
-import com.nylg.zziiaicodemother.model.dto.*;
+import com.nylg.zziiaicodemother.model.dto.user.*;
 import com.nylg.zziiaicodemother.model.vo.LoginUserVo;
 import com.nylg.zziiaicodemother.model.vo.UserVO;
 import jakarta.servlet.http.HttpServletRequest;
-import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -174,7 +171,7 @@ public class UserController {
      * 用户修改个人信息
      */
     @PostMapping("/update/my")
-    public BaseResponse<Boolean> updateMyUser(@RequestBody UserUpdateMyRequest userUpdateMyRequest,HttpServletRequest request) {
+    public BaseResponse<Boolean> updateMyUser(@RequestBody UserUpdateMyRequest userUpdateMyRequest, HttpServletRequest request) {
         if (userUpdateMyRequest == null) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR);
         }

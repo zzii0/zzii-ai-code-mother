@@ -1,4 +1,4 @@
-package com.nylg.zziiaicodemother.model.dto;
+package com.nylg.zziiaicodemother.model.dto.user;
 
 import lombok.Data;
 
