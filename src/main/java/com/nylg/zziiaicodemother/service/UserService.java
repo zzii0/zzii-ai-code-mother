@@ -2,10 +2,10 @@ package com.nylg.zziiaicodemother.service;
 
 import com.mybatisflex.core.query.QueryWrapper;
 import com.mybatisflex.core.service.IService;
-import com.nylg.zziiaicodemother.model.dto.user.UserLoginRequest;
-import com.nylg.zziiaicodemother.model.dto.user.UserQueryRequest;
-import com.nylg.zziiaicodemother.model.dto.user.UserRegisterRequest;
-import com.nylg.zziiaicodemother.model.dto.user.UserUpdateMyRequest;
+import com.nylg.zziiaicodemother.model.dto.UserLoginRequest;
+import com.nylg.zziiaicodemother.model.dto.UserQueryRequest;
+import com.nylg.zziiaicodemother.model.dto.UserRegisterRequest;
+import com.nylg.zziiaicodemother.model.dto.UserUpdateMyRequest;
 import com.nylg.zziiaicodemother.model.entity.User;
 import com.nylg.zziiaicodemother.model.vo.LoginUserVo;
 import com.nylg.zziiaicodemother.model.vo.UserVO;

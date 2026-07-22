@@ -8,10 +8,10 @@ import com.mybatisflex.core.query.QueryWrapper;
 import com.mybatisflex.spring.service.impl.ServiceImpl;
 import com.nylg.zziiaicodemother.exception.BusinessException;
 import com.nylg.zziiaicodemother.exception.ErrorCode;
-import com.nylg.zziiaicodemother.model.dto.user.UserLoginRequest;
-import com.nylg.zziiaicodemother.model.dto.user.UserQueryRequest;
-import com.nylg.zziiaicodemother.model.dto.user.UserRegisterRequest;
-import com.nylg.zziiaicodemother.model.dto.user.UserUpdateMyRequest;
+import com.nylg.zziiaicodemother.model.dto.UserLoginRequest;
+import com.nylg.zziiaicodemother.model.dto.UserQueryRequest;
+import com.nylg.zziiaicodemother.model.dto.UserRegisterRequest;
+import com.nylg.zziiaicodemother.model.dto.UserUpdateMyRequest;
 import com.nylg.zziiaicodemother.model.entity.User;
 import com.nylg.zziiaicodemother.mapper.UserMapper;
 import com.nylg.zziiaicodemother.model.enums.UserRoleEnum;
@@ -28,6 +28,7 @@ import jakarta.annotation.Resource;
 
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
 
