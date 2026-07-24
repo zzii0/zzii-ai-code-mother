@@ -61,7 +61,7 @@ public class AvatarFileManager {
         extension = extension == null ? "" : extension.toLowerCase();
         ThrowUtils.throwIf(!ALLOWED_EXTENSIONS.contains(extension), ErrorCode.PARAMS_ERROR, "文件格式不支持");
 
-        Path uploadDir = Paths.get(avatarDir).toAbsolutePath().normalize();
+        Path uploadDir = resolveAvatarRoot();
         try {
             Files.createDirectories(uploadDir);
             String fileName = userId + "_" + IdUtil.getSnowflakeNextIdStr() + "." + extension;
@@ -72,5 +72,16 @@ public class AvatarFileManager {
         } catch (IOException e) {
             throw new BusinessException(ErrorCode.OPERATION_ERROR, "头像上传失败");
         }
+    }
+
+    /**
+     * 解析头像目录：相对路径基于项目工作目录，与代码输出目录策略一致
+     */
+    public Path resolveAvatarRoot() {
+        Path path = Paths.get(avatarDir);
+        if (!path.isAbsolute()) {
+            path = Paths.get(System.getProperty("user.dir"), avatarDir);
+        }
+        return path.toAbsolutePath().normalize();
     }
 }

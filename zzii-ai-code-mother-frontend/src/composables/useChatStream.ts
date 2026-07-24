@@ -15,6 +15,9 @@ interface UseChatStreamOptions {
   exitEditModeIfNeeded: () => void
 }
 
+/** 流式更新节流间隔（毫秒） */
+const STREAM_UPDATE_INTERVAL = 120
+
 export function useChatStream(options: UseChatStreamOptions) {
   const userInput = ref('')
   const isGenerating = ref(false)
@@ -23,6 +26,7 @@ export function useChatStream(options: UseChatStreamOptions) {
     console.error('生成代码失败：', error)
     options.messages.value[aiMessageIndex].content = '抱歉，生成过程中出现了错误，请重试。'
     options.messages.value[aiMessageIndex].loading = false
+    options.messages.value[aiMessageIndex].streaming = false
     message.error('生成失败，请重试')
     isGenerating.value = false
   }
@@ -30,17 +34,73 @@ export function useChatStream(options: UseChatStreamOptions) {
   const generateCode = async (userMessage: string, aiMessageIndex: number) => {
     let eventSource: EventSource | null = null
     let streamCompleted = false
+    let fullContent = ''
+    let lastUpdateTime = 0
+    let scrollScheduled = false
+    let flushTimer: ReturnType<typeof setTimeout> | null = null
+
+    const flushContent = (forceScroll = false) => {
+      const aiMessage = options.messages.value[aiMessageIndex]
+      aiMessage.content = fullContent
+      aiMessage.loading = false
+      aiMessage.streaming = true
+
+      if (forceScroll || !scrollScheduled) {
+        scrollScheduled = true
+        requestAnimationFrame(() => {
+          scrollScheduled = false
+          options.scrollToBottom()
+        })
+      }
+    }
+
+    const scheduleFlush = () => {
+      const now = Date.now()
+      const elapsed = now - lastUpdateTime
+
+      if (elapsed >= STREAM_UPDATE_INTERVAL) {
+        if (flushTimer) {
+          clearTimeout(flushTimer)
+          flushTimer = null
+        }
+        lastUpdateTime = now
+        flushContent()
+        return
+      }
+
+      if (flushTimer) return
+
+      flushTimer = setTimeout(() => {
+        flushTimer = null
+        lastUpdateTime = Date.now()
+        flushContent()
+      }, STREAM_UPDATE_INTERVAL - elapsed)
+    }
+
+    const completeStream = async () => {
+      if (flushTimer) {
+        clearTimeout(flushTimer)
+        flushTimer = null
+      }
+      const aiMessage = options.messages.value[aiMessageIndex]
+      aiMessage.content = fullContent
+      aiMessage.loading = false
+      isGenerating.value = false
+      options.scrollToBottom()
+      await options.onStreamComplete()
+      aiMessage.streaming = false
+      options.scrollToBottom()
+    }
 
     try {
       const baseURL = request.defaults.baseURL || API_BASE_URL
       const params = new URLSearchParams({
         appId: String(options.appId() || ''),
-        message: userMessage,
+        userMessage,
       })
       const url = `${baseURL}/app/chat/gen/code?${params}`
 
       eventSource = new EventSource(url, { withCredentials: true })
-      let fullContent = ''
 
       eventSource.onmessage = (event) => {
         if (streamCompleted) return
@@ -49,9 +109,7 @@ export function useChatStream(options: UseChatStreamOptions) {
           const content = parsed.d
           if (content !== undefined && content !== null) {
             fullContent += content
-            options.messages.value[aiMessageIndex].content = fullContent
-            options.messages.value[aiMessageIndex].loading = false
-            options.scrollToBottom()
+            scheduleFlush()
           }
         } catch (error) {
           console.error('解析消息失败:', error)
@@ -62,20 +120,22 @@ export function useChatStream(options: UseChatStreamOptions) {
       eventSource.addEventListener('done', () => {
         if (streamCompleted) return
         streamCompleted = true
-        isGenerating.value = false
         eventSource?.close()
-        setTimeout(async () => {
-          await options.onStreamComplete()
-        }, 1000)
+        void completeStream()
       })
 
       eventSource.addEventListener('business-error', (event: MessageEvent) => {
         if (streamCompleted) return
+        if (flushTimer) {
+          clearTimeout(flushTimer)
+          flushTimer = null
+        }
         try {
           const errorData = JSON.parse(event.data)
           const errorMessage = errorData.message || '生成过程中出现错误'
           options.messages.value[aiMessageIndex].content = `❌ ${errorMessage}`
           options.messages.value[aiMessageIndex].loading = false
+          options.messages.value[aiMessageIndex].streaming = false
           message.error(errorMessage)
           streamCompleted = true
           isGenerating.value = false
@@ -90,11 +150,8 @@ export function useChatStream(options: UseChatStreamOptions) {
         if (streamCompleted || !isGenerating.value) return
         if (eventSource?.readyState === EventSource.CONNECTING) {
           streamCompleted = true
-          isGenerating.value = false
           eventSource?.close()
-          setTimeout(async () => {
-            await options.onStreamComplete()
-          }, 1000)
+          void completeStream()
         } else {
           handleError(new Error('SSE连接错误'), aiMessageIndex)
         }
@@ -108,7 +165,7 @@ export function useChatStream(options: UseChatStreamOptions) {
   const startGeneration = async (prompt: string) => {
     options.messages.value.push({ type: 'user', content: prompt })
     const aiMessageIndex = options.messages.value.length
-    options.messages.value.push({ type: 'ai', content: '', loading: true })
+    options.messages.value.push({ type: 'ai', content: '', loading: true, streaming: true })
     options.scrollToBottom()
     isGenerating.value = true
     await generateCode(prompt, aiMessageIndex)

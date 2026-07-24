@@ -50,11 +50,14 @@ export function useChatHistory(appId: () => string | number | undefined) {
       } else {
         hasMoreHistory.value = false
       }
-      historyLoaded.value = true
     } catch (error) {
       console.error('加载对话历史失败：', error)
       message.error('加载对话历史失败')
     } finally {
+      // 首次加载无论成功与否都应标记完成，避免阻塞新应用的初始代码生成
+      if (!isLoadMore) {
+        historyLoaded.value = true
+      }
       loadingHistory.value = false
     }
   }

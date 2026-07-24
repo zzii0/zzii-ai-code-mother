@@ -3,6 +3,8 @@ export interface ChatMessage {
   type: 'user' | 'ai'
   content: string
   loading?: boolean
+  /** 流式输出中，使用纯文本展示以避免频繁 Markdown 渲染卡顿 */
+  streaming?: boolean
   createTime?: string
 }
 

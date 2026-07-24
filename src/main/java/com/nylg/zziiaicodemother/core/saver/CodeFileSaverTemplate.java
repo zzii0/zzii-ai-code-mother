@@ -74,8 +74,6 @@ public abstract class CodeFileSaverTemplate<T> {
         if (StrUtil.isNotBlank(content)) {
             String filePath = dirPath + File.separator + filename;
             FileUtil.writeString(content, filePath, StandardCharsets.UTF_8);
-        } else {
-            throw new BusinessException(ErrorCode.SYSTEM_ERROR, "文件内容不能为空");
         }
     }
 

@@ -17,7 +17,8 @@
           <a-avatar :src="aiAvatar" />
         </div>
         <div class="message-content">
-          <MarkdownRenderer v-if="message.content" :content="message.content" />
+          <pre v-if="message.streaming" class="streaming-content">{{ message.content }}</pre>
+          <MarkdownRenderer v-else-if="message.content" :content="message.content" />
           <div v-if="message.loading" class="loading-indicator">
             <a-spin size="small" />
             <span>AI 正在思考...</span>
@@ -115,6 +116,17 @@ defineExpose({
   align-items: center;
   gap: 8px;
   color: #666;
+}
+
+.streaming-content {
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-family: inherit;
+  font-size: inherit;
+  line-height: 1.5;
+  max-height: 400px;
+  overflow-y: auto;
 }
 
 .load-more-container {

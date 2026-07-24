@@ -18,7 +18,16 @@ export const getUserAvatarUrl = (avatar?: string) => {
   if (avatar.startsWith('http://') || avatar.startsWith('https://') || avatar.startsWith('data:')) {
     return avatar
   }
-  return `${API_BASE_URL}${avatar.startsWith('/') ? avatar : `/${avatar}`}`
+  // 兼容历史脏数据：已带 /api 前缀时不再重复拼接
+  if (avatar.startsWith('/api/')) {
+    return avatar
+  }
+  const path = avatar.startsWith('/') ? avatar : `/${avatar}`
+  // 开发环境 API_BASE_URL 为 /api，生产可为完整域名
+  if (API_BASE_URL.endsWith('/') && path.startsWith('/')) {
+    return `${API_BASE_URL.slice(0, -1)}${path}`
+  }
+  return `${API_BASE_URL}${path}`
 }
 
 // 获取部署应用的完整URL
