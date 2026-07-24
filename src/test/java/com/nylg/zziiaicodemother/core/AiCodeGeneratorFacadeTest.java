@@ -19,13 +19,13 @@ class AiCodeGeneratorFacadeTest {
 
     @Test
     void generateAndSaveCode() {
-        File file = aiCodeGeneratorFacade.generateAndSaveCode("帮我做一个网站的登录页面，不要超过20行代码", CodeGenTypeEnum.MULTI_FILE);
+        File file = aiCodeGeneratorFacade.generateAndSaveCode("帮我做一个网站的登录页面，不要超过20行代码", CodeGenTypeEnum.MULTI_FILE, 1L);
         Assertions.assertNotNull(file);
     }
 
     @Test
     void generateAndSaveCodeStream() {
-        Flux<String> result = aiCodeGeneratorFacade.generateAndSaveCodeStream("帮我做一个网站的登录页面，不要超过20行代码", CodeGenTypeEnum.HTML);
+        Flux<String> result = aiCodeGeneratorFacade.generateAndSaveCodeStream("帮我做一个网站的登录页面，不要超过20行代码", CodeGenTypeEnum.HTML, 1L);
         List<String> list = result.collectList().block();
         Assertions.assertNotNull(list);
         String content = String.join("", list);
