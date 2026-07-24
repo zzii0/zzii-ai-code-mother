@@ -36,33 +36,35 @@
     </a-alert>
 
     <div class="input-wrapper">
-      <a-tooltip v-if="!isOwner" title="无法在别人的作品下对话哦~" placement="top">
+      <div class="input-area">
+        <a-tooltip v-if="!isOwner" title="无法在别人的作品下对话哦~" placement="top">
+          <a-textarea
+            :value="modelValue"
+            :placeholder="placeholder"
+            :rows="4"
+            :maxlength="1000"
+            :disabled="isGenerating || !isOwner"
+            @update:value="$emit('update:modelValue', $event)"
+            @keydown="handleKeydown"
+          />
+        </a-tooltip>
         <a-textarea
+          v-else
           :value="modelValue"
           :placeholder="placeholder"
           :rows="4"
           :maxlength="1000"
-          :disabled="isGenerating || !isOwner"
+          :disabled="isGenerating"
           @update:value="$emit('update:modelValue', $event)"
           @keydown="handleKeydown"
         />
-      </a-tooltip>
-      <a-textarea
-        v-else
-        :value="modelValue"
-        :placeholder="placeholder"
-        :rows="4"
-        :maxlength="1000"
-        :disabled="isGenerating"
-        @update:value="$emit('update:modelValue', $event)"
-        @keydown="handleKeydown"
-      />
-      <div class="input-actions">
-        <a-button type="primary" :loading="isGenerating" :disabled="!isOwner" @click="$emit('send')">
-          <template #icon>
-            <SendOutlined />
-          </template>
-        </a-button>
+        <div class="input-actions">
+          <a-button type="primary" :loading="isGenerating" :disabled="!isOwner" @click="$emit('send')">
+            <template #icon>
+              <SendOutlined />
+            </template>
+          </a-button>
+        </div>
       </div>
       <p v-if="isOwner" class="input-hint">Ctrl + Enter 发送</p>
     </div>
@@ -101,18 +103,19 @@ const handleKeydown = (event: KeyboardEvent) => {
   background: white;
 }
 
-.input-wrapper {
+.input-area {
   position: relative;
 }
 
-.input-wrapper :deep(.ant-input) {
-  padding-right: 50px;
+.input-area :deep(.ant-input) {
+  padding-right: 52px;
+  padding-bottom: 44px;
 }
 
 .input-actions {
   position: absolute;
-  bottom: 8px;
-  right: 8px;
+  bottom: 10px;
+  right: 10px;
 }
 
 .selected-element-alert {
