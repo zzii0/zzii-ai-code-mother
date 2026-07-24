@@ -11,7 +11,7 @@ import java.util.Map;
 
 public class Codegen {
     // 需要生成的表名
-    private static final String[] TABLES = {"app"};
+    private static final String[] TABLES = {"chat_history"};
 
     public static void main(String[] args) {
         //配置数据源

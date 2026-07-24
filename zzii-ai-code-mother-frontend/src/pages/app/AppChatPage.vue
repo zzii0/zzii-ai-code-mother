@@ -150,7 +150,6 @@ const fetchAppInfo = async () => {
 }
 
 const onStreamComplete = async () => {
-  await fetchAppInfo()
   updatePreview()
 }
 
