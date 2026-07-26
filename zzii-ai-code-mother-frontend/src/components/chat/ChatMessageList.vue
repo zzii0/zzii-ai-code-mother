@@ -30,7 +30,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, nextTick, ref } from 'vue'
 import MarkdownRenderer from '@/components/MarkdownRenderer.vue'
 import type { ChatMessage } from '@/types/chat'
 import { createMessageKey } from '@/types/chat'
@@ -54,10 +54,15 @@ const messagesContainer = ref<HTMLElement>()
 
 defineExpose({
   messagesContainer,
-  scrollToBottom: () => {
-    if (messagesContainer.value) {
-      messagesContainer.value.scrollTop = messagesContainer.value.scrollHeight
-    }
+  scrollToBottom: (instant = false) => {
+    nextTick(() => {
+      if (messagesContainer.value) {
+        messagesContainer.value.scrollTo({
+          top: messagesContainer.value.scrollHeight,
+          behavior: instant ? 'auto' : 'smooth',
+        })
+      }
+    })
   },
 })
 </script>

@@ -116,8 +116,8 @@ const {
   () => appInfo.value?.codeGenType,
 )
 
-const scrollToBottom = () => {
-  messageListRef.value?.scrollToBottom()
+const scrollToBottom = (instant = false) => {
+  messageListRef.value?.scrollToBottom(instant)
 }
 
 const fetchAppInfo = async () => {
@@ -127,6 +127,9 @@ const fetchAppInfo = async () => {
     if (isApiSuccess(res) && res.data.data) {
       appInfo.value = res.data.data
       await loadChatHistory()
+      if (messages.value.length > 0) {
+        scrollToBottom(true)
+      }
       if (messages.value.length >= 2) {
         updatePreview()
       }
