@@ -6,6 +6,7 @@ import com.mybatisflex.core.service.IService;
 import com.nylg.zziiaicodemother.model.dto.chatHistory.ChatHistoryQueryRequest;
 import com.nylg.zziiaicodemother.model.entity.ChatHistory;
 import com.nylg.zziiaicodemother.model.entity.User;
+import dev.langchain4j.memory.chat.MessageWindowChatMemory;
 
 import java.time.LocalDateTime;
 
@@ -52,4 +53,12 @@ public interface ChatHistoryService extends IService<ChatHistory> {
     Page<ChatHistory> listAppChatHistoryByPage(Long appId, int pageSize,
                                                LocalDateTime lastCreateTime,
                                                User loginUser);
+
+    /**
+     * 将对话历史加载到内存中
+     * @param appId 应用id
+     * @param chatMemory 聊天内存
+     * @param maxCount 最大数量
+     */
+    int loadChatHistoryToMemory(Long appId, MessageWindowChatMemory chatMemory, int maxCount);
 }

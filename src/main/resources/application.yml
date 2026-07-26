@@ -1,4 +1,9 @@
 spring:
+  # session 配置
+  session:
+    store-type: redis
+    # session 1 天过期
+    timeout: 86400
   datasource:
     url: jdbc:mysql://localhost:3306/zzii_ai_code_mother?useSSL=false&serverTimezone=UTC
     username: root
@@ -22,6 +27,10 @@ server:
   port: 8123
   servlet:
     context-path: /api
+    # cookie 1 天过期
+    session:
+      cookie:
+        max-age: 86400
 
 mybatis-flex:
   configuration:

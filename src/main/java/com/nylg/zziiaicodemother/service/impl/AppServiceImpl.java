@@ -56,6 +56,13 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App> implements AppSe
     @Resource
     private ChatHistoryService chatHistoryService;
 
+    /**
+     * 调用AI生成代码
+     * @param appId 应用ID
+     * @param userMessage 用户消息
+     * @param loginUser 登录用户
+     * @return AI生成的代码
+     */
     @Override
     public Flux<String> chatToGenCode(Long appId, String userMessage, User loginUser) {
         //1.参数校验
@@ -207,6 +214,11 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App> implements AppSe
         }).collect(Collectors.toList());
     }
 
+    /**
+     * 删除应用时关联删除对话历史
+     * @param id 应用ID
+     * @return 是否删除成功
+     */
     @Override
     public boolean removeById(Serializable id){
         if (id == null){
