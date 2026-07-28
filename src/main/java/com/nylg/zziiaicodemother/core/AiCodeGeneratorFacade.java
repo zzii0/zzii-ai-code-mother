@@ -1,14 +1,21 @@
 package com.nylg.zziiaicodemother.core;
 
+import cn.hutool.json.JSONUtil;
 import com.nylg.zziiaicodemother.ai.AiCodeGeneratorService;
 import com.nylg.zziiaicodemother.ai.AiCodeGeneratorServiceFactory;
 import com.nylg.zziiaicodemother.ai.model.HtmlCodeResult;
 import com.nylg.zziiaicodemother.ai.model.MultiFileCodeResult;
+import com.nylg.zziiaicodemother.ai.model.message.AiResponseMessage;
+import com.nylg.zziiaicodemother.ai.model.message.ToolExecutedMessage;
+import com.nylg.zziiaicodemother.ai.model.message.ToolRequestMessage;
 import com.nylg.zziiaicodemother.core.parser.CodeParserExecutor;
 import com.nylg.zziiaicodemother.core.saver.CodeFileSaverExecutor;
 import com.nylg.zziiaicodemother.exception.BusinessException;
 import com.nylg.zziiaicodemother.exception.ErrorCode;
 import com.nylg.zziiaicodemother.model.enums.CodeGenTypeEnum;
+import dev.langchain4j.model.chat.response.ChatResponse;
+import dev.langchain4j.service.TokenStream;
+import dev.langchain4j.service.tool.ToolExecution;
 import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -75,12 +82,47 @@ public class AiCodeGeneratorFacade {
                 yield processCodeStream(result, CodeGenTypeEnum.MULTI_FILE, appId);
             }
             case VUE_PROJECT -> {
-                Flux<String> result = aiCodeGeneratorService.generateVueProjectCodeStream(appId, userMessage);
-                yield processCodeStream(result, CodeGenTypeEnum.VUE_PROJECT, appId);
+                TokenStream tokenStream = aiCodeGeneratorService.generateVueProjectCodeStream(appId, userMessage);
+                yield processTokenStream(tokenStream);
             }
             default -> throw new BusinessException(ErrorCode.SYSTEM_ERROR, "不支持的代码生成类型");
         };
     }
+
+    /**
+     * 将 TokenStream 转换为 Flux<String>，并传递工具调用信息
+     *
+     * @param tokenStream TokenStream 对象
+     * @return Flux<String> 流式响应
+     */
+    private Flux<String> processTokenStream(TokenStream tokenStream) {
+        return Flux.create(sink -> {
+            //AI响应片段
+            tokenStream.onPartialResponse((String partialResponse) -> {
+                        AiResponseMessage aiResponseMessage = new AiResponseMessage(partialResponse);
+                        sink.next(JSONUtil.toJsonStr(aiResponseMessage));
+                    })
+                    //工具调用请求片段
+                    .onPartialToolExecutionRequest((index, toolExecutionRequest) -> {
+                        ToolRequestMessage toolRequestMessage = new ToolRequestMessage(toolExecutionRequest);
+                        sink.next(JSONUtil.toJsonStr(toolRequestMessage));
+                    })
+                    //工具调用结果片段
+                    .onToolExecuted((ToolExecution toolExecution) -> {
+                        ToolExecutedMessage toolExecutedMessage = new ToolExecutedMessage(toolExecution);
+                        sink.next(JSONUtil.toJsonStr(toolExecutedMessage));
+                    })
+                    .onCompleteResponse((ChatResponse response) -> {
+                        sink.complete();
+                    })
+                    .onError((Throwable error) -> {
+                        error.printStackTrace();
+                        sink.error(error);
+                    })
+                    .start();
+        });
+    }
+
 
     /**
      * 处理代码流通用方法

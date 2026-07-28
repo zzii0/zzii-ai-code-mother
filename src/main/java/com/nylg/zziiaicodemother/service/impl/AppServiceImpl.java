@@ -10,6 +10,7 @@ import com.mybatisflex.core.query.QueryWrapper;
 import com.mybatisflex.spring.service.impl.ServiceImpl;
 import com.nylg.zziiaicodemother.constant.AppConstant;
 import com.nylg.zziiaicodemother.core.AiCodeGeneratorFacade;
+import com.nylg.zziiaicodemother.core.handler.StreamHandlerExecutor;
 import com.nylg.zziiaicodemother.exception.BusinessException;
 import com.nylg.zziiaicodemother.exception.ErrorCode;
 import com.nylg.zziiaicodemother.exception.ThrowUtils;
@@ -56,6 +57,9 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App> implements AppSe
     @Resource
     private ChatHistoryService chatHistoryService;
 
+    @Resource
+    private StreamHandlerExecutor streamHandlerExecutor;
+
     /**
      * 调用AI生成代码
      * @param appId 应用ID
@@ -83,24 +87,7 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App> implements AppSe
         //6.调用AI生成代码(流式)
         Flux<String> contentFlux = aiCodeGeneratorFacade.generateAndSaveCodeStream(userMessage, codeGenTypeEnum, appId);
         //7.收集AI响应的消息内容，保存到对话历史中
-        StringBuilder stringBuilder = new StringBuilder();
-        return contentFlux.map(chunk -> {
-                    stringBuilder.append(chunk);
-                    return chunk;
-                })
-                .doOnComplete(() -> {
-                    // 流式响应完成后，添加AI消息到对话历史
-                    String aiResponse = stringBuilder.toString();
-                    if (StrUtil.isNotBlank(aiResponse)) {
-                        boolean saveAiResponse = chatHistoryService.addChatMessage(appId, aiResponse, ChatHistoryMessageTypeEnum.AI.getValue(), loginUser.getId());
-                        ThrowUtils.throwIf(!saveAiResponse, ErrorCode.SYSTEM_ERROR, "AI响应消息保存失败");
-                    }
-                })
-                .doOnError(error -> {
-                    // 如果AI回复失败，也要记录错误消息
-                    String errorMessage = "AI回复失败" + error.getMessage();
-                    chatHistoryService.addChatMessage(appId, errorMessage, ChatHistoryMessageTypeEnum.AI.getValue(), loginUser.getId());
-                });
+        return streamHandlerExecutor.doExecute(contentFlux, chatHistoryService, appId, loginUser, codeGenTypeEnum);
     }
 
     /**
@@ -220,12 +207,12 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App> implements AppSe
      * @return 是否删除成功
      */
     @Override
-    public boolean removeById(Serializable id){
-        if (id == null){
+    public boolean removeById(Serializable id) {
+        if (id == null) {
             return false;
         }
         long appId = Long.parseLong(id.toString());
-        if (appId <= 0){
+        if (appId <= 0) {
             return false;
         }
         //先删除关联的对话历史
