@@ -30,6 +30,23 @@ export const getUserAvatarUrl = (avatar?: string) => {
   return `${API_BASE_URL}${path}`
 }
 
+/** 解析应用封面完整 URL（兼容缺少协议的 COS 地址） */
+export const getCoverUrl = (cover?: string) => {
+  if (!cover) return undefined
+  if (cover.startsWith('http://') || cover.startsWith('https://') || cover.startsWith('data:')) {
+    return cover
+  }
+  // 本地静态资源或 API 相对路径
+  if (cover.startsWith('/')) {
+    return getUserAvatarUrl(cover)
+  }
+  // COS 域名缺少协议时补 https://
+  if (cover.includes('.myqcloud.com/') || cover.includes('.cos.')) {
+    return `https://${cover}`
+  }
+  return cover
+}
+
 // 获取部署应用的完整URL
 export const getDeployUrl = (deployKey: string) => {
   return `${DEPLOY_DOMAIN}/${deployKey}`

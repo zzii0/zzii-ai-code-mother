@@ -1,7 +1,7 @@
 <template>
   <div class="app-card" :class="{ 'app-card--featured': featured }">
     <div class="app-preview">
-      <img v-if="app.cover" :src="app.cover" :alt="app.appName" />
+      <img v-if="app.cover" :src="getCoverUrl(app.cover)" :alt="app.appName" />
       <div v-else class="app-placeholder">
         <span>🤖</span>
       </div>
@@ -29,7 +29,7 @@
 </template>
 
 <script setup lang="ts">
-import { getUserAvatarUrl } from '@/config/env'
+import { getCoverUrl, getUserAvatarUrl } from '@/config/env'
 
 interface Props {
   app: API.AppVO
