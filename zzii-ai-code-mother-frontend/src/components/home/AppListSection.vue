@@ -1,6 +1,6 @@
 <template>
   <div class="section">
-    <h2 class="section-title">{{ title }}</h2>
+    <h2 ref="titleRef" class="section-title">{{ title }}</h2>
     <div v-if="loading" class="app-grid-skeleton">
       <a-card v-for="i in 3" :key="i" class="skeleton-card">
         <a-skeleton active :paragraph="{ rows: 3 }" />
@@ -31,8 +31,14 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import AppCard from '@/components/AppCard.vue'
+
+const titleRef = ref<HTMLElement>()
+
+defineExpose({
+  titleRef,
+})
 
 const props = withDefaults(
   defineProps<{
@@ -55,7 +61,7 @@ const props = withDefaults(
 )
 
 const emit = defineEmits<{
-  viewChat: [appId: string | number | undefined]
+  viewChat: [app: API.AppVO]
   viewWork: [app: API.AppVO]
   pageChange: [page: number]
 }>()

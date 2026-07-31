@@ -1,11 +1,13 @@
 <script setup lang="ts">
-import { onMounted, onUnmounted, ref } from 'vue'
+import { nextTick, onMounted, onUnmounted, ref, type CSSProperties } from 'vue'
 import { useRouter } from 'vue-router'
 import { message } from 'ant-design-vue'
+import { ExclamationCircleFilled } from '@ant-design/icons-vue'
 import { useLoginUserStore } from '@/stores/loginUser'
 import { addApp } from '@/api/appController'
 import { getDeployUrl } from '@/config/env'
 import { getApiErrorMessage, isApiSuccess } from '@/utils/apiHelper'
+import ACCESS_ENUM from '@/access/accessEnum'
 import { useAppList } from '@/composables/useAppList'
 import PromptCreateSection from '@/components/home/PromptCreateSection.vue'
 import AppListSection from '@/components/home/AppListSection.vue'
@@ -15,6 +17,42 @@ const loginUserStore = useLoginUserStore()
 
 const userPrompt = ref('')
 const creating = ref(false)
+const authTipVisible = ref(false)
+const authTipStyle = ref<CSSProperties>({})
+const featuredSectionRef = ref<InstanceType<typeof AppListSection>>()
+let authTipTimer: ReturnType<typeof setTimeout> | null = null
+
+const updateAuthTipPosition = () => {
+  const titleEl = featuredSectionRef.value?.titleRef
+  if (!titleEl) {
+    authTipStyle.value = {
+      top: '50%',
+      left: '50%',
+      transform: 'translate(-50%, -50%)',
+    }
+    return
+  }
+  const rect = titleEl.getBoundingClientRect()
+  authTipStyle.value = {
+    top: `${rect.top + rect.height / 2}px`,
+    left: '50%',
+    transform: 'translate(-50%, -50%)',
+  }
+}
+
+const showAuthTip = async () => {
+  updateAuthTipPosition()
+  authTipVisible.value = true
+  await nextTick()
+  updateAuthTipPosition()
+  if (authTipTimer) {
+    clearTimeout(authTipTimer)
+  }
+  authTipTimer = setTimeout(() => {
+    authTipVisible.value = false
+    authTipTimer = null
+  }, 3000)
+}
 
 const {
   myApps,
@@ -56,10 +94,22 @@ const createApp = async () => {
   }
 }
 
-const viewChat = (appId: string | number | undefined) => {
-  if (appId) {
-    router.push(`/app/chat/${appId}?view=1`)
+const viewChat = (app: API.AppVO) => {
+  if (!app?.id) {
+    return
   }
+  const loginUser = loginUserStore.loginUser
+  if (!loginUser.id) {
+    message.warning('请先登录')
+    return
+  }
+  const isAdmin = loginUser.userRole === ACCESS_ENUM.ADMIN
+  const isCreator = app.userId != null && app.userId === loginUser.id
+  if (!isAdmin && !isCreator) {
+    showAuthTip()
+    return
+  }
+  router.push(`/app/chat/${app.id}?view=1`)
 }
 
 const viewWork = (app: API.AppVO) => {
@@ -89,10 +139,17 @@ onMounted(async () => {
   await loadMyApps(loginUserStore.loginUser.id)
   await loadFeaturedApps()
   document.addEventListener('mousemove', handleMouseMove)
+  window.addEventListener('resize', updateAuthTipPosition)
+  window.addEventListener('scroll', updateAuthTipPosition, true)
 })
 
 onUnmounted(() => {
   document.removeEventListener('mousemove', handleMouseMove)
+  window.removeEventListener('resize', updateAuthTipPosition)
+  window.removeEventListener('scroll', updateAuthTipPosition, true)
+  if (authTipTimer) {
+    clearTimeout(authTipTimer)
+  }
 })
 </script>
 
@@ -113,6 +170,7 @@ onUnmounted(() => {
       />
 
       <AppListSection
+        ref="featuredSectionRef"
         title="精选案例"
         :apps="featuredApps"
         :page="featuredAppsPage"
@@ -126,6 +184,23 @@ onUnmounted(() => {
         @page-change="handleFeaturedAppsPageChange"
       />
     </div>
+
+    <Teleport to="body">
+      <Transition name="home-auth-tip">
+        <div
+          v-if="authTipVisible"
+          class="home-auth-tip-overlay"
+          :style="authTipStyle"
+          role="alert"
+          @click="authTipVisible = false"
+        >
+          <div class="home-auth-tip-box" @click.stop>
+            <ExclamationCircleFilled class="home-auth-tip-icon" />
+            <span>无权查看该应用的对话历史</span>
+          </div>
+        </div>
+      </Transition>
+    </Teleport>
   </div>
 </template>
 
@@ -167,5 +242,45 @@ onUnmounted(() => {
 .container {
   position: relative;
   z-index: 2;
+}
+
+.home-auth-tip-overlay {
+  position: fixed;
+  z-index: 2000;
+  pointer-events: none;
+}
+
+.home-auth-tip-box {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  max-width: min(calc(100vw - 48px), 420px);
+  padding: 14px 22px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #fff7e6 0%, #fffbe6 100%);
+  border: 1px solid #ffe58f;
+  box-shadow: 0 12px 32px rgba(250, 173, 20, 0.22);
+  color: #874d00;
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1.5;
+  pointer-events: auto;
+  white-space: nowrap;
+}
+
+.home-auth-tip-icon {
+  color: #faad14;
+  font-size: 18px;
+  flex-shrink: 0;
+}
+
+.home-auth-tip-enter-active,
+.home-auth-tip-leave-active {
+  transition: opacity 0.25s ease;
+}
+
+.home-auth-tip-enter-from,
+.home-auth-tip-leave-to {
+  opacity: 0;
 }
 </style>
