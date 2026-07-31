@@ -3,7 +3,7 @@ package com.nylg.zziiaicodemother.service;
 import jakarta.servlet.http.HttpServletResponse;
 
 /**
- * 通用的下载项目服务
+ * 通用的下载项目代码服务
  */
 public interface ProjectDownloadService {
 
