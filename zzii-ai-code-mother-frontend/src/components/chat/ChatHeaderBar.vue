@@ -18,18 +18,20 @@
         </template>
         应用详情
       </a-button>
-      <a-button
-        type="primary"
-        ghost
-        :loading="downloading"
-        :disabled="!isOwner"
-        @click="$emit('download')"
-      >
-        <template #icon>
-          <DownloadOutlined />
-        </template>
-        下载代码
-      </a-button>
+      <a-tooltip :title="downloadTooltip">
+        <a-button
+          type="primary"
+          ghost
+          :loading="downloading"
+          :disabled="downloadDisabled"
+          @click="$emit('download')"
+        >
+          <template #icon>
+            <DownloadOutlined />
+          </template>
+          下载代码
+        </a-button>
+      </a-tooltip>
       <a-button type="primary" :loading="deploying" @click="$emit('deploy')">
         <template #icon>
           <CloudUploadOutlined />
@@ -41,16 +43,18 @@
 </template>
 
 <script setup lang="ts">
+import { computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { ArrowLeftOutlined, CloudUploadOutlined, DownloadOutlined, InfoCircleOutlined } from '@ant-design/icons-vue'
 import { formatCodeGenType } from '@/utils/codeGenTypes'
 
 const router = useRouter()
 
-defineProps<{
+const props = defineProps<{
   appName?: string
   codeGenType?: string
   isOwner: boolean
+  canDownload: boolean
   downloading: boolean
   deploying: boolean
 }>()
@@ -60,6 +64,18 @@ defineEmits<{
   download: []
   deploy: []
 }>()
+
+const downloadDisabled = computed(() => !props.isOwner || !props.canDownload)
+
+const downloadTooltip = computed(() => {
+  if (!props.isOwner) {
+    return '仅创建者可下载代码'
+  }
+  if (!props.canDownload) {
+    return '请先部署应用后再下载代码'
+  }
+  return '下载项目代码'
+})
 </script>
 
 <style scoped>

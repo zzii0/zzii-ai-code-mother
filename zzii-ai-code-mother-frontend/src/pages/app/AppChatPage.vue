@@ -4,11 +4,12 @@
       :app-name="appInfo?.appName || '网站生成器'"
       :code-gen-type="appInfo?.codeGenType"
       :is-owner="isOwner"
+      :can-download="canDownloadCode"
       :downloading="downloading"
       :deploying="deploying"
       @show-detail="showAppDetail"
       @download="downloadCode"
-      @deploy="deployApp"
+      @deploy="handleDeploy"
     />
 
     <div class="main-content">
@@ -91,6 +92,7 @@ const messageListRef = ref<InstanceType<typeof ChatMessageList>>()
 
 const isOwner = computed(() => appInfo.value?.userId === loginUserStore.loginUser.id)
 const isAdmin = computed(() => loginUserStore.loginUser.userRole === 'admin')
+const canDownloadCode = computed(() => !!appInfo.value?.deployKey)
 
 const {
   messages,
@@ -179,7 +181,14 @@ const {
   deployApp,
   openInNewTab,
   openDeployedSite,
-} = useAppDeploy(() => appId.value)
+} = useAppDeploy(() => appId.value, () => canDownloadCode.value)
+
+const handleDeploy = async () => {
+  const success = await deployApp()
+  if (success) {
+    await fetchAppInfo()
+  }
+}
 
 const showAppDetail = () => {
   appDetailVisible.value = true
