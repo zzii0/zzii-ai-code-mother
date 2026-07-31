@@ -5,6 +5,7 @@ import cn.hutool.core.util.StrUtil;
 import cn.hutool.json.JSONUtil;
 import com.mybatisflex.core.paginate.Page;
 import com.mybatisflex.core.query.QueryWrapper;
+import com.nylg.zziiaicodemother.ai.AiCodeGenTypeRoutingService;
 import com.nylg.zziiaicodemother.annotation.AuthCheck;
 import com.nylg.zziiaicodemother.common.BaseResponse;
 import com.nylg.zziiaicodemother.common.DeleteRequest;
@@ -53,6 +54,9 @@ public class AppController {
 
     @Resource
     private ProjectDownloadService projectDownloadService;
+
+    @Resource
+    private AiCodeGenTypeRoutingService aiCodeGenTypeRoutingService;
 
     /**
      * 应用部署
@@ -125,8 +129,9 @@ public class AppController {
         app.setUserId(loginUser.getId());
         // 应用名称暂时为 initPrompt 前 12 位
         app.setAppName(initPrompt.substring(0, Math.min(initPrompt.length(), 12)));
-        // 暂时设置为vue项目生成
-        app.setCodeGenType(CodeGenTypeEnum.VUE_PROJECT.getValue());
+        // 根据AI智能选择代码生成类型
+        CodeGenTypeEnum codeGenTypeEnum = aiCodeGenTypeRoutingService.routeCodeGenType(initPrompt);
+        app.setCodeGenType(codeGenTypeEnum.getValue());
         // 插入数据库
         boolean result = appService.save(app);
         ThrowUtils.throwIf(!result, ErrorCode.OPERATION_ERROR);
