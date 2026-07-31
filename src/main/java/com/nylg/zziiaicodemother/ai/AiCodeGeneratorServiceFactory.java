@@ -2,7 +2,7 @@ package com.nylg.zziiaicodemother.ai;
 
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
-import com.nylg.zziiaicodemother.ai.tools.FileWriteTool;
+import com.nylg.zziiaicodemother.ai.tools.ToolManager;
 import com.nylg.zziiaicodemother.exception.BusinessException;
 import com.nylg.zziiaicodemother.exception.ErrorCode;
 import com.nylg.zziiaicodemother.model.enums.CodeGenTypeEnum;
@@ -39,6 +39,9 @@ public class AiCodeGeneratorServiceFactory {
 
     @Resource
     private ChatHistoryService chatHistoryService;
+
+    @Resource
+    private ToolManager toolMessage;
 
     /**
      * AI 服务实例缓存
@@ -92,7 +95,7 @@ public class AiCodeGeneratorServiceFactory {
                     .chatModel(chatModel)
                     .streamingChatModel(reasoningStreamingChatModel)
                     .chatMemoryProvider(memoryId -> chatMemory)
-                    .tools(new FileWriteTool())
+                    .tools(toolMessage.getAllTools())
                     .hallucinatedToolNameStrategy(toolExecutionRequest -> ToolExecutionResultMessage.from(
                             toolExecutionRequest,
                             "Error: there is no tool called " + toolExecutionRequest.name()))
