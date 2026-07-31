@@ -85,10 +85,14 @@ public class StaticResourceController {
             if (!file.exists()) {
                 return ResponseEntity.notFound().build();
             }
-            // 返回文件资源
+            // 返回文件资源（预览页禁用缓存，便于 AI 修改后及时看到最新结果）
             Resource resource = new FileSystemResource(file);
             return ResponseEntity.ok()
-                    .header("Content-Type", getContentTypeWithCharset(filePath))
+                    .header(HttpHeaders.CONTENT_TYPE, getContentTypeWithCharset(filePath))
+                    .header(HttpHeaders.CACHE_CONTROL, "no-cache, no-store, must-revalidate")
+                    .header(HttpHeaders.PRAGMA, "no-cache")
+                    .header(HttpHeaders.EXPIRES, "0")
+                    .lastModified(file.lastModified())
                     .body(resource);
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();

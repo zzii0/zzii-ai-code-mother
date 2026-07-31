@@ -108,6 +108,7 @@ const {
   isEditMode,
   selectedElementInfo,
   updatePreview,
+  refreshPreviewAfterGeneration,
   onIframeLoad,
   toggleEditMode,
   clearSelectedElement,
@@ -155,7 +156,7 @@ const fetchAppInfo = async () => {
 }
 
 const onStreamComplete = async () => {
-  updatePreview()
+  await refreshPreviewAfterGeneration()
 }
 
 const { userInput, isGenerating, sendMessage, sendInitialMessage } = useChatStream({
