@@ -21,6 +21,9 @@ public class ScreenshotServiceImpl implements ScreenshotService {
     @Resource
     private CosManager cosManager;
 
+    @Resource
+    private WebScreenshotUtils webScreenshotUtils;
+
     @Override
     public String generateAndUploadScreenshot(String webUrl) {
         if (StrUtil.isBlank(webUrl)) {
@@ -30,7 +33,7 @@ public class ScreenshotServiceImpl implements ScreenshotService {
         String localScreenshotPath = null;
         try {
             log.info("开始生成截图，网页URL：{}", webUrl);
-            localScreenshotPath = WebScreenshotUtils.saveWebPageScreenshot(webUrl);
+            localScreenshotPath = webScreenshotUtils.saveWebPageScreenshot(webUrl);
             if (StrUtil.isBlank(localScreenshotPath)) {
                 log.error("截图生成失败，webUrl={}", webUrl);
                 return null;
