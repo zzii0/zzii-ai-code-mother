@@ -1,4 +1,4 @@
-package com.nylg.zziiaicodemother.ai;
+package com.nylg.zziiaicodemother.langgraph4j.ai;
 
 import dev.langchain4j.service.SystemMessage;
 import dev.langchain4j.service.UserMessage;

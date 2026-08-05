@@ -1,4 +1,4 @@
-package com.nylg.zziiaicodemother.ai;
+package com.nylg.zziiaicodemother.langgraph4j.ai;
 
 import com.nylg.zziiaicodemother.langgraph4j.tools.ImageSearchTool;
 import com.nylg.zziiaicodemother.langgraph4j.tools.LogoGeneratorTool;

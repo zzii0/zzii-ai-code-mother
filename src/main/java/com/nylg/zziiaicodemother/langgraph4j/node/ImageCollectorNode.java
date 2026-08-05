@@ -1,9 +1,8 @@
 package com.nylg.zziiaicodemother.langgraph4j.node;
 
-import com.nylg.zziiaicodemother.ai.ImageCollectionService;
+import com.nylg.zziiaicodemother.langgraph4j.ai.ImageCollectionService;
 import com.nylg.zziiaicodemother.langgraph4j.state.WorkflowContext;
 import com.nylg.zziiaicodemother.utils.SpringContextUtil;
-import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
 import org.bsc.langgraph4j.action.AsyncNodeAction;
 import org.bsc.langgraph4j.prebuilt.MessagesState;
