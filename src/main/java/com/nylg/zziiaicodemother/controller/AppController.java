@@ -6,6 +6,7 @@ import cn.hutool.json.JSONUtil;
 import com.mybatisflex.core.paginate.Page;
 import com.mybatisflex.core.query.QueryWrapper;
 import com.nylg.zziiaicodemother.ai.AiCodeGenTypeRoutingService;
+import com.nylg.zziiaicodemother.ai.AiCodeGenTypeRoutingServiceFactory;
 import com.nylg.zziiaicodemother.annotation.AuthCheck;
 import com.nylg.zziiaicodemother.common.BaseResponse;
 import com.nylg.zziiaicodemother.common.DeleteRequest;
@@ -56,7 +57,7 @@ public class AppController {
     private ProjectDownloadService projectDownloadService;
 
     @Resource
-    private AiCodeGenTypeRoutingService aiCodeGenTypeRoutingService;
+    private AiCodeGenTypeRoutingServiceFactory aiCodeGenTypeRoutingServiceFactory;
 
     /**
      * 应用部署
@@ -92,9 +93,9 @@ public class AppController {
         ThrowUtils.throwIf(userMessage == null || userMessage.isEmpty(), ErrorCode.PARAMS_ERROR, "用户消息错误");
         User loginUser = userService.getLoginUser(request);
         Flux<String> contentFLux = appService.chatToGenCode(appId, userMessage, loginUser);
-        return contentFLux.map(chunk->{
+        return contentFLux.map(chunk -> {
             // 将内容包装成 JSON
-            Map<String,String> map=Map.of("d",chunk);
+            Map<String, String> map = Map.of("d", chunk);
             String jsonData = JSONUtil.toJsonStr(map);
             return ServerSentEvent.<String>builder()
                     .data(jsonData)
@@ -129,7 +130,8 @@ public class AppController {
         app.setUserId(loginUser.getId());
         // 应用名称暂时为 initPrompt 前 12 位
         app.setAppName(initPrompt.substring(0, Math.min(initPrompt.length(), 12)));
-        // 根据AI智能选择代码生成类型
+        // 使用 AI 智能选择代码生成类型（多例模式）
+        AiCodeGenTypeRoutingService aiCodeGenTypeRoutingService = aiCodeGenTypeRoutingServiceFactory.createAiCodeGenTypeRoutingService();
         CodeGenTypeEnum codeGenTypeEnum = aiCodeGenTypeRoutingService.routeCodeGenType(initPrompt);
         app.setCodeGenType(codeGenTypeEnum.getValue());
         // 插入数据库
