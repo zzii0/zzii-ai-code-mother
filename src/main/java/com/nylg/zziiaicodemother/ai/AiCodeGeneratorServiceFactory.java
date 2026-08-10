@@ -3,6 +3,7 @@ package com.nylg.zziiaicodemother.ai;
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.nylg.zziiaicodemother.ai.guardrail.PromptSafetyInputGuardrail;
+import com.nylg.zziiaicodemother.ai.guardrail.RetryOutputGuardrail;
 import com.nylg.zziiaicodemother.ai.tools.ToolManager;
 import com.nylg.zziiaicodemother.exception.BusinessException;
 import com.nylg.zziiaicodemother.exception.ErrorCode;
@@ -96,7 +97,9 @@ public class AiCodeGeneratorServiceFactory {
                         .streamingChatModel(reasoningStreamingChatModel)
                         .chatMemoryProvider(memoryId -> chatMemory)
                         .tools(toolMessage.getAllTools())
+                        .maxSequentialToolsInvocations(20)  //最多连续调用20次工具
                         .inputGuardrails(new PromptSafetyInputGuardrail())  //添加输入护轨
+                        //.outputGuardrails(new RetryOutputGuardrail())   //添加输出护轨，但是为了流式输出，注释掉
                         .hallucinatedToolNameStrategy(toolExecutionRequest -> ToolExecutionResultMessage.from(
                                 toolExecutionRequest,
                                 "Error: there is no tool called " + toolExecutionRequest.name()))
@@ -111,6 +114,7 @@ public class AiCodeGeneratorServiceFactory {
                         .streamingChatModel(openAiStreamingChatModel)
                         .chatMemory(chatMemory)
                         .inputGuardrails(new PromptSafetyInputGuardrail())  //添加输入护轨
+                        //.outputGuardrails(new RetryOutputGuardrail())   //添加输出护轨，但是为了流式输出，注释掉
                         .build();
             }
             default -> throw new BusinessException(ErrorCode.SYSTEM_ERROR, "不支持的代码生成类型: " + codeGenTypeEnum.getValue());
