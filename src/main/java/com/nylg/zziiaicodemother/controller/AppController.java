@@ -20,6 +20,8 @@ import com.nylg.zziiaicodemother.model.dto.app.*;
 import com.nylg.zziiaicodemother.model.entity.User;
 import com.nylg.zziiaicodemother.model.enums.CodeGenTypeEnum;
 import com.nylg.zziiaicodemother.model.vo.AppVO;
+import com.nylg.zziiaicodemother.ratelimiter.annotation.RateLimit;
+import com.nylg.zziiaicodemother.ratelimiter.enums.RateLimitType;
 import com.nylg.zziiaicodemother.service.ProjectDownloadService;
 import com.nylg.zziiaicodemother.service.UserService;
 import jakarta.annotation.Resource;
@@ -89,6 +91,7 @@ public class AppController {
      * @return 生成的代码
      */
     @GetMapping(value = "/chat/gen/code", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    @RateLimit(limitType = RateLimitType.USER, rate = 5, rateInterval = 60, message = "AI对话请求过于频繁，请稍后再试")
     Flux<ServerSentEvent<String>> chatToGenCode(@RequestParam Long appId, @RequestParam String userMessage, HttpServletRequest request) {
         ThrowUtils.throwIf(appId == null || appId <= 0, ErrorCode.PARAMS_ERROR, "应用ID错误");
         ThrowUtils.throwIf(userMessage == null || userMessage.isEmpty(), ErrorCode.PARAMS_ERROR, "用户消息错误");

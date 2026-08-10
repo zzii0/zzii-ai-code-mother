@@ -3,8 +3,6 @@ package com.nylg.zziiaicodemother.exception;
 import cn.hutool.json.JSONUtil;
 import com.nylg.zziiaicodemother.common.BaseResponse;
 import com.nylg.zziiaicodemother.common.ResultUtils;
-import com.nylg.zziiaicodemother.exception.BusinessException;
-import com.nylg.zziiaicodemother.exception.ErrorCode;
 import io.swagger.v3.oas.annotations.Hidden;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
