@@ -24,6 +24,8 @@ public class ScreenshotServiceImpl implements ScreenshotService {
     @Resource
     private WebScreenshotUtils webScreenshotUtils;
 
+    private static final int MAX_SCREENSHOT_RETRIES = 2;
+
     @Override
     public String generateAndUploadScreenshot(String webUrl) {
         if (StrUtil.isBlank(webUrl)) {
@@ -33,7 +35,16 @@ public class ScreenshotServiceImpl implements ScreenshotService {
         String localScreenshotPath = null;
         try {
             log.info("开始生成截图，网页URL：{}", webUrl);
-            localScreenshotPath = webScreenshotUtils.saveWebPageScreenshot(webUrl);
+            for (int attempt = 0; attempt <= MAX_SCREENSHOT_RETRIES; attempt++) {
+                if (attempt > 0) {
+                    log.warn("截图失败，开始第 {} 次重试，webUrl={}", attempt, webUrl);
+                    Thread.sleep(2000L * attempt);
+                }
+                localScreenshotPath = webScreenshotUtils.saveWebPageScreenshot(webUrl);
+                if (StrUtil.isNotBlank(localScreenshotPath)) {
+                    break;
+                }
+            }
             if (StrUtil.isBlank(localScreenshotPath)) {
                 log.error("截图生成失败，webUrl={}", webUrl);
                 return null;
