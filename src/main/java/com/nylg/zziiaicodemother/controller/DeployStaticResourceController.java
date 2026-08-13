@@ -56,7 +56,9 @@ public class DeployStaticResourceController {
             Resource resource = new FileSystemResource(file);
             return ResponseEntity.ok()
                     .header(HttpHeaders.CONTENT_TYPE, getContentTypeWithCharset(filePath))
-                    .header(HttpHeaders.CACHE_CONTROL, "public, max-age=3600")
+                    .header(HttpHeaders.CACHE_CONTROL, "no-cache, no-store, must-revalidate")
+                    .header(HttpHeaders.PRAGMA, "no-cache")
+                    .header(HttpHeaders.EXPIRES, "0")
                     .lastModified(file.lastModified())
                     .body(resource);
         } catch (Exception e) {
