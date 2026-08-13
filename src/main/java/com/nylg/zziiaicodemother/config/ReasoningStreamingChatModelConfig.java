@@ -8,10 +8,15 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Scope;
 
+import java.time.Duration;
+
 @Configuration
 @ConfigurationProperties(prefix = "langchain4j.open-ai.reasoning-streaming-chat-model")
 @Data
 public class ReasoningStreamingChatModelConfig {
+
+    // 新增超时时间
+    private Duration timeout;
 
     private String baseUrl;
 
@@ -38,6 +43,7 @@ public class ReasoningStreamingChatModelConfig {
                 .temperature(temperature)
                 .logRequests(logRequests)
                 .logResponses(logResponses)
+                .timeout(timeout)
                 .build();
     }
 }
