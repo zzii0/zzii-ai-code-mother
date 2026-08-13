@@ -23,6 +23,7 @@ import com.nylg.zziiaicodemother.model.enums.CodeGenTypeEnum;
 import com.nylg.zziiaicodemother.model.vo.AppVO;
 import com.nylg.zziiaicodemother.model.vo.UserVO;
 import com.nylg.zziiaicodemother.service.AppService;
+import com.nylg.zziiaicodemother.service.AppVersionService;
 import com.nylg.zziiaicodemother.service.ChatHistoryService;
 import com.nylg.zziiaicodemother.service.ScreenshotService;
 import com.nylg.zziiaicodemother.service.UserService;
@@ -67,6 +68,9 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App> implements AppSe
     @Resource
     private ScreenshotService screenshotService;
 
+    @Resource
+    private AppVersionService appVersionService;
+
     /**
      * 调用AI生成代码
      * @param appId 应用ID
@@ -88,6 +92,8 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App> implements AppSe
         String codeGenType = app.getCodeGenType();
         CodeGenTypeEnum codeGenTypeEnum = CodeGenTypeEnum.getEnumByValue(codeGenType);
         ThrowUtils.throwIf(codeGenTypeEnum == null, ErrorCode.SYSTEM_ERROR, "代码生成类型错误");
+        //4.1 生成前归档当前代码，支持后续版本对比与回退（HTML/多文件/Vue 统一入口）
+        appVersionService.archiveCurrentVersion(appId, codeGenTypeEnum);
         //5.在调用AI前，把用户消息保存到对话历史中
         boolean chatMessage = chatHistoryService.addChatMessage(appId, userMessage, ChatHistoryMessageTypeEnum.USER.getValue(), loginUser.getId());
         ThrowUtils.throwIf(!chatMessage, ErrorCode.SYSTEM_ERROR, "用户消息保存失败");
@@ -127,24 +133,26 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App> implements AppSe
         if (!sourcesDir.exists() || !sourcesDir.isDirectory()) {
             throw new BusinessException(ErrorCode.SYSTEM_ERROR, "应用生成目录不存在");
         }
-        //7.vue项目特殊处理，执行构建
+        //7.vue项目特殊处理：等待预览构建完成，确保 dist 与源码一致后再部署
         CodeGenTypeEnum codeGenTypeEnum = CodeGenTypeEnum.getEnumByValue(codeGenType);
         if (codeGenTypeEnum == CodeGenTypeEnum.VUE_PROJECT) {
-            //vue 项目执行构建
-            boolean projectResult = vueProjectBuilder.buildProject(dirPath);
+            boolean projectResult = vueProjectBuilder.ensureBuiltForDeploy(dirPath);
             ThrowUtils.throwIf(!projectResult, ErrorCode.SYSTEM_ERROR, "vue项目构建失败，请重试!");
-            //检查dist目录是否存在
             File distDir = new File(dirPath, "dist");
             ThrowUtils.throwIf(!distDir.exists(), ErrorCode.SYSTEM_ERROR, "dist目录不存在");
-            //将dist目录作为应用部署目录
             sourcesDir = distDir;
-            //构建成功
-            log.info("vue项目构建成功，dist目录: {}", distDir.getAbsolutePath());
+            log.info("vue项目准备部署，dist目录: {}", distDir.getAbsolutePath());
         }
-        //8.复制应用生成目录到部署目录
+        //8.复制应用生成目录到部署目录（整目录替换，避免旧资源残留）
         String deployDir = AppConstant.CODE_DEPLOY_ROOT_DIR + File.separator + deployKey;
+        File deployDirFile = new File(deployDir);
         try {
-            FileUtil.copyContent(sourcesDir, new File(deployDir), true);
+            if (deployDirFile.exists()) {
+                FileUtil.del(deployDirFile);
+            }
+            FileUtil.mkdir(deployDirFile);
+            FileUtil.copyContent(sourcesDir, deployDirFile, true);
+            log.info("应用部署文件已复制: {} -> {}", sourcesDir.getAbsolutePath(), deployDirFile.getAbsolutePath());
         } catch (Exception e) {
             throw new BusinessException(ErrorCode.SYSTEM_ERROR, "应用部署失败" + e.getMessage());
         }
@@ -155,8 +163,8 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App> implements AppSe
         updateApp.setDeployedTime(LocalDateTime.now());
         boolean result = this.updateById(updateApp);
         ThrowUtils.throwIf(!result, ErrorCode.SYSTEM_ERROR, "应用部署信息更新失败");
-        //10.返回可以访问的应用部署地址
-        String appUrl = String.format("%s/%s/", AppConstant.CODE_DEPLOY_HOST, deployKey);
+        //10.返回可以访问的应用部署地址（附带时间戳，避免浏览器缓存旧版本）
+        String appUrl = String.format("%s/%s/?t=%d", AppConstant.CODE_DEPLOY_HOST, deployKey, System.currentTimeMillis());
         //异步调用生成截图服务并更新应用封面
         generateAppScreenshotAsync(appId, appUrl);
         return appUrl;

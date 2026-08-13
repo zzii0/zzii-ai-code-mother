@@ -180,3 +180,47 @@ export async function updateApp(body: API.AppUpdateRequest, options?: { [key: st
     ...(options || {}),
   })
 }
+
+/** 获取应用版本列表 GET /app/version/list */
+export async function listAppVersions(
+  params: API.listAppVersionsParams,
+  options?: { [key: string]: any }
+) {
+  return request<API.BaseResponseListAppVersionVO>('/app/version/list', {
+    method: 'GET',
+    params: {
+      ...params,
+    },
+    ...(options || {}),
+  })
+}
+
+/** 对比应用版本 POST /app/version/compare */
+export async function compareAppVersion(
+  body: API.AppVersionCompareRequest,
+  options?: { [key: string]: any }
+) {
+  return request<API.BaseResponseAppVersionCompareVO>('/app/version/compare', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    data: body,
+    ...(options || {}),
+  })
+}
+
+/** 回退应用版本 POST /app/version/rollback */
+export async function rollbackAppVersion(
+  body: API.AppVersionRollbackRequest,
+  options?: { [key: string]: any }
+) {
+  return request<API.BaseResponseBoolean>('/app/version/rollback', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    data: body,
+    ...(options || {}),
+  })
+}

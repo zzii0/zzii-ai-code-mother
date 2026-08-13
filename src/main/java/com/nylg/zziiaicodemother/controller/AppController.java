@@ -20,8 +20,11 @@ import com.nylg.zziiaicodemother.model.dto.app.*;
 import com.nylg.zziiaicodemother.model.entity.User;
 import com.nylg.zziiaicodemother.model.enums.CodeGenTypeEnum;
 import com.nylg.zziiaicodemother.model.vo.AppVO;
+import com.nylg.zziiaicodemother.model.vo.AppVersionCompareVO;
+import com.nylg.zziiaicodemother.model.vo.AppVersionVO;
 import com.nylg.zziiaicodemother.ratelimiter.annotation.RateLimit;
 import com.nylg.zziiaicodemother.ratelimiter.enums.RateLimitType;
+import com.nylg.zziiaicodemother.service.AppVersionService;
 import com.nylg.zziiaicodemother.service.ProjectDownloadService;
 import com.nylg.zziiaicodemother.service.UserService;
 import jakarta.annotation.Resource;
@@ -62,6 +65,41 @@ public class AppController {
 
     @Resource
     private AiCodeGenTypeRoutingServiceFactory aiCodeGenTypeRoutingServiceFactory;
+
+    @Resource
+    private AppVersionService appVersionService;
+
+    /**
+     * 获取应用版本列表
+     */
+    @GetMapping("/version/list")
+    public BaseResponse<List<AppVersionVO>> listAppVersions(@RequestParam Long appId, HttpServletRequest request) {
+        ThrowUtils.throwIf(appId == null || appId <= 0, ErrorCode.PARAMS_ERROR, "应用 ID 不能为空");
+        User loginUser = userService.getLoginUser(request);
+        return ResultUtils.success(appVersionService.listAppVersions(appId, loginUser));
+    }
+
+    /**
+     * 对比应用版本文件差异
+     */
+    @PostMapping("/version/compare")
+    public BaseResponse<AppVersionCompareVO> compareAppVersion(@RequestBody AppVersionCompareRequest appVersionCompareRequest,
+                                                               HttpServletRequest request) {
+        ThrowUtils.throwIf(appVersionCompareRequest == null, ErrorCode.PARAMS_ERROR);
+        User loginUser = userService.getLoginUser(request);
+        return ResultUtils.success(appVersionService.compareAppVersion(appVersionCompareRequest, loginUser));
+    }
+
+    /**
+     * 回退到指定历史版本
+     */
+    @PostMapping("/version/rollback")
+    public BaseResponse<Boolean> rollbackAppVersion(@RequestBody AppVersionRollbackRequest appVersionRollbackRequest,
+                                                    HttpServletRequest request) {
+        ThrowUtils.throwIf(appVersionRollbackRequest == null, ErrorCode.PARAMS_ERROR);
+        User loginUser = userService.getLoginUser(request);
+        return ResultUtils.success(appVersionService.rollbackAppVersion(appVersionRollbackRequest, loginUser));
+    }
 
     /**
      * 应用部署

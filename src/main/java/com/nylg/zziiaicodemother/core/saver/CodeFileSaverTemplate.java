@@ -1,7 +1,6 @@
 package com.nylg.zziiaicodemother.core.saver;
 
 import cn.hutool.core.io.FileUtil;
-import cn.hutool.core.util.IdUtil;
 import cn.hutool.core.util.StrUtil;
 import com.nylg.zziiaicodemother.constant.AppConstant;
 import com.nylg.zziiaicodemother.exception.BusinessException;
@@ -29,6 +28,8 @@ public abstract class CodeFileSaverTemplate<T> {
         validateInput(result);
         //构建唯一目录
         String dirPath = buildDirPath(appId);
+        // 清理当前目录，避免历史已删除文件残留（版本归档在 chatToGenCode 入口统一完成）
+        FileUtil.clean(dirPath);
         //保存代码文件（具体实现由子类完成）
         saveCodeFile(result, dirPath);
         //返回文件对象

@@ -34,6 +34,34 @@ declare namespace API {
     appName?: string
   }
 
+  type AppVersionCompareRequest = {
+    appId?: number
+    oldVersionKey?: string
+    newVersionKey?: string
+    filePath?: string
+  }
+
+  type AppVersionCompareVO = {
+    fileList?: string[]
+    filePath?: string
+    oldContent?: string
+    newContent?: string
+    additions?: number
+    removals?: number
+  }
+
+  type AppVersionRollbackRequest = {
+    appId?: number
+    versionKey?: string
+  }
+
+  type AppVersionVO = {
+    versionKey?: string
+    versionName?: string
+    createTime?: string
+    current?: boolean
+  }
+
   type AppVO = {
     id?: number
     appName?: string
@@ -55,9 +83,21 @@ declare namespace API {
     message?: string
   }
 
+  type BaseResponseAppVersionCompareVO = {
+    code?: number
+    data?: AppVersionCompareVO
+    message?: string
+  }
+
   type BaseResponseBoolean = {
     code?: number
     data?: boolean
+    message?: string
+  }
+
+  type BaseResponseListAppVersionVO = {
+    code?: number
+    data?: AppVersionVO[]
     message?: string
   }
 
@@ -166,6 +206,10 @@ declare namespace API {
     appId: number
     pageSize?: number
     lastCreateTime?: string
+  }
+
+  type listAppVersionsParams = {
+    appId: number
   }
 
   type LoginUserVO = {

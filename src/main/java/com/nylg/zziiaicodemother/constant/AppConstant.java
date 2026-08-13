@@ -27,4 +27,19 @@ public interface AppConstant {
      */
     String CODE_DEPLOY_HOST = "http://127.0.0.1:8123/api/deploy";
 
+    /**
+     * 应用历史版本目录
+     */
+    String CODE_VERSION_ROOT_DIR = System.getProperty("user.dir") + "/tmp/code_versions";
+
+    /**
+     * 当前版本标识（用于版本对比）
+     */
+    String CURRENT_VERSION_KEY = "current";
+
+    /**
+     * 单个应用最多保留的历史版本数量
+     */
+    int MAX_APP_VERSION_COUNT = 20;
+
 }

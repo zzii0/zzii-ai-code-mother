@@ -52,6 +52,7 @@
       :show-actions="isOwner || isAdmin"
       @edit="editApp"
       @delete="deleteApp"
+      @rollback-success="refreshPreviewAfterGeneration"
     />
 
     <DeploySuccessModal
