@@ -94,7 +94,7 @@ const createApp = async () => {
   }
 }
 
-const viewChat = (app: API.AppVO) => {
+const viewMyAppChat = (app: API.AppVO) => {
   if (!app?.id) {
     return
   }
@@ -107,6 +107,18 @@ const viewChat = (app: API.AppVO) => {
   const isCreator = app.userId != null && app.userId === loginUser.id
   if (!isAdmin && !isCreator) {
     showAuthTip()
+    return
+  }
+  router.push(`/app/chat/${app.id}`)
+}
+
+const viewFeaturedChat = (app: API.AppVO) => {
+  if (!app?.id) {
+    return
+  }
+  const loginUser = loginUserStore.loginUser
+  if (!loginUser.id) {
+    message.warning('请先登录')
     return
   }
   router.push(`/app/chat/${app.id}?view=1`)
@@ -164,7 +176,7 @@ onUnmounted(() => {
         :page="myAppsPage"
         :loading="myAppsLoading"
         empty-description="登录后创建你的第一个 AI 应用"
-        @view-chat="viewChat"
+        @view-chat="viewMyAppChat"
         @view-work="viewWork"
         @page-change="handleMyAppsPageChange"
       />
@@ -179,7 +191,7 @@ onUnmounted(() => {
         unit="个案例"
         grid-class="featured-grid"
         empty-description="暂无精选案例"
-        @view-chat="viewChat"
+        @view-chat="viewFeaturedChat"
         @view-work="viewWork"
         @page-change="handleFeaturedAppsPageChange"
       />

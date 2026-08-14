@@ -26,7 +26,7 @@
 
         <ChatInput
           v-model:model-value="userInput"
-          :placeholder="getInputPlaceholder()"
+          :placeholder="getChatPlaceholder()"
           :is-owner="isOwner"
           :is-generating="isGenerating"
           :selected-element-info="selectedElementInfo"
@@ -119,6 +119,13 @@ const {
   () => appId.value,
   () => appInfo.value?.codeGenType,
 )
+
+const getChatPlaceholder = () => {
+  if (!isOwner.value) {
+    return '描述越详细，页面越具体，可以一步一步完善生成效果'
+  }
+  return getInputPlaceholder()
+}
 
 const scrollToBottom = (instant = false) => {
   messageListRef.value?.scrollToBottom(instant)

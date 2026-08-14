@@ -37,15 +37,18 @@
 
     <div class="input-wrapper">
       <div class="input-area">
-        <a-tooltip v-if="!isOwner" title="无法在别人的作品下对话哦~" placement="top">
+        <a-tooltip
+          v-if="!isOwner"
+          title="这不是您的作品，无法在当前页面继续对话"
+          placement="top"
+        >
           <a-textarea
             :value="modelValue"
             :placeholder="placeholder"
             :rows="4"
             :maxlength="1000"
-            :disabled="isGenerating || !isOwner"
+            disabled
             @update:value="$emit('update:modelValue', $event)"
-            @keydown="handleKeydown"
           />
         </a-tooltip>
         <a-textarea
@@ -59,7 +62,13 @@
           @keydown="handleKeydown"
         />
         <div class="input-actions">
-          <a-button type="primary" :loading="isGenerating" :disabled="!isOwner" @click="$emit('send')">
+          <span v-if="!isOwner" class="input-disabled-hint">暂不可输入</span>
+          <a-button
+            v-else
+            type="primary"
+            :loading="isGenerating"
+            @click="$emit('send')"
+          >
             <template #icon>
               <SendOutlined />
             </template>
@@ -154,5 +163,11 @@ const handleKeydown = (event: KeyboardEvent) => {
   font-size: 12px;
   color: #999;
   text-align: right;
+}
+
+.input-disabled-hint {
+  font-size: 13px;
+  color: #bfbfbf;
+  user-select: none;
 }
 </style>

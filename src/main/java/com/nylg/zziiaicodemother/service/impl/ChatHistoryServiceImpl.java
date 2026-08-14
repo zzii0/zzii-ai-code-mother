@@ -5,6 +5,7 @@ import cn.hutool.core.util.StrUtil;
 import com.mybatisflex.core.paginate.Page;
 import com.mybatisflex.core.query.QueryWrapper;
 import com.mybatisflex.spring.service.impl.ServiceImpl;
+import com.nylg.zziiaicodemother.constant.AppConstant;
 import com.nylg.zziiaicodemother.constant.UserConstant;
 import com.nylg.zziiaicodemother.exception.ErrorCode;
 import com.nylg.zziiaicodemother.exception.ThrowUtils;
@@ -127,12 +128,13 @@ public class ChatHistoryServiceImpl extends ServiceImpl<ChatHistoryMapper, ChatH
         ThrowUtils.throwIf(appId == null || appId <= 0, ErrorCode.PARAMS_ERROR, "应用ID不能为空");
         ThrowUtils.throwIf(pageSize <= 0 || pageSize > 50, ErrorCode.PARAMS_ERROR, "页面大小必须在1-50之间");
         ThrowUtils.throwIf(loginUser == null, ErrorCode.NOT_LOGIN_ERROR);
-        // 验证权限：只有应用创建者和管理员可以查看
+        // 验证权限：应用创建者、管理员、或精选应用（任意登录用户可查看）
         App app = appService.getById(appId);
         ThrowUtils.throwIf(app == null, ErrorCode.NOT_FOUND_ERROR, "应用不存在");
         boolean isAdmin = UserConstant.ADMIN_ROLE.equals(loginUser.getUserRole());
         boolean isCreator = app.getUserId().equals(loginUser.getId());
-        ThrowUtils.throwIf(!isAdmin && !isCreator, ErrorCode.NO_AUTH_ERROR, "无权查看该应用的对话历史");
+        boolean isFeatured = AppConstant.GOOD_APP_PRIORITY.equals(app.getPriority());
+        ThrowUtils.throwIf(!isAdmin && !isCreator && !isFeatured, ErrorCode.NO_AUTH_ERROR, "无权查看该应用的对话历史");
         // 构建查询条件
         ChatHistoryQueryRequest queryRequest = new ChatHistoryQueryRequest();
         queryRequest.setAppId(appId);

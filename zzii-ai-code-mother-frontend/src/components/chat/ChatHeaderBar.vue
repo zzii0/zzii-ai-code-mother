@@ -32,7 +32,7 @@
           下载代码
         </a-button>
       </a-tooltip>
-      <a-button type="primary" :loading="deploying" @click="$emit('deploy')">
+      <a-button v-if="isOwner" type="primary" :loading="deploying" @click="$emit('deploy')">
         <template #icon>
           <CloudUploadOutlined />
         </template>
