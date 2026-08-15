@@ -7,6 +7,7 @@ import com.mybatisflex.core.paginate.Page;
 import com.mybatisflex.core.query.QueryWrapper;
 import com.nylg.zziiaicodemother.ai.AiCodeGenTypeRoutingService;
 import com.nylg.zziiaicodemother.ai.AiCodeGenTypeRoutingServiceFactory;
+import com.nylg.zziiaicodemother.ai.model.result.AppCreateAiResult;
 import com.nylg.zziiaicodemother.annotation.AuthCheck;
 import com.nylg.zziiaicodemother.common.BaseResponse;
 import com.nylg.zziiaicodemother.common.DeleteRequest;
@@ -37,6 +38,8 @@ import org.springframework.http.codec.ServerSentEvent;
 import org.springframework.web.bind.annotation.*;
 import com.nylg.zziiaicodemother.model.entity.App;
 import com.nylg.zziiaicodemother.service.AppService;
+import com.nylg.zziiaicodemother.utils.AppNameUtils;
+import lombok.extern.slf4j.Slf4j;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
@@ -50,6 +53,7 @@ import java.util.Map;
  *
  * @author zzii
  */
+@Slf4j
 @RestController
 @RequestMapping("/app")
 public class AppController {
@@ -171,12 +175,22 @@ public class AppController {
         App app = new App();
         BeanUtil.copyProperties(appAddRequest, app);
         app.setUserId(loginUser.getId());
-        // 应用名称暂时为 initPrompt 前 12 位
-        app.setAppName(initPrompt.substring(0, Math.min(initPrompt.length(), 12)));
-        // 使用 AI 智能选择代码生成类型（多例模式）
-        AiCodeGenTypeRoutingService aiCodeGenTypeRoutingService = aiCodeGenTypeRoutingServiceFactory.createAiCodeGenTypeRoutingService();
-        CodeGenTypeEnum codeGenTypeEnum = aiCodeGenTypeRoutingService.routeCodeGenType(initPrompt);
-        app.setCodeGenType(codeGenTypeEnum.getValue());
+        //获取兜底名称
+        String fallbackName = AppNameUtils.buildFallbackName(initPrompt);
+        CodeGenTypeEnum fallbackCodeGenType = CodeGenTypeEnum.HTML;
+        try {
+            AiCodeGenTypeRoutingService aiCodeGenTypeRoutingService =
+                    aiCodeGenTypeRoutingServiceFactory.createAiCodeGenTypeRoutingService();
+            //调用AI服务来生成应用名称
+            AppCreateAiResult appCreateAiResult = aiCodeGenTypeRoutingService.analyzeAppCreate(initPrompt);
+            app.setAppName(AppNameUtils.resolveAppName(appCreateAiResult.getAppName(), fallbackName));
+            CodeGenTypeEnum codeGenTypeEnum = appCreateAiResult.getCodeGenType();
+            app.setCodeGenType(codeGenTypeEnum != null ? codeGenTypeEnum.getValue() : fallbackCodeGenType.getValue());
+        } catch (Exception e) {
+            log.warn("AI 分析应用创建信息失败，使用默认值，initPrompt={}", initPrompt, e);
+            app.setAppName(fallbackName);
+            app.setCodeGenType(fallbackCodeGenType.getValue());
+        }
         // 插入数据库
         boolean result = appService.save(app);
         ThrowUtils.throwIf(!result, ErrorCode.OPERATION_ERROR);

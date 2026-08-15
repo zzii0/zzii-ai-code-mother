@@ -1,7 +1,7 @@
 package com.nylg.zziiaicodemother.ai;
 
-import com.nylg.zziiaicodemother.ai.model.HtmlCodeResult;
-import com.nylg.zziiaicodemother.ai.model.MultiFileCodeResult;
+import com.nylg.zziiaicodemother.ai.model.result.HtmlCodeResult;
+import com.nylg.zziiaicodemother.ai.model.result.MultiFileCodeResult;
 import dev.langchain4j.service.MemoryId;
 import dev.langchain4j.service.SystemMessage;
 import dev.langchain4j.service.TokenStream;

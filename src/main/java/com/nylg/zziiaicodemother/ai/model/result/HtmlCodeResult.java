@@ -1,4 +1,4 @@
-package com.nylg.zziiaicodemother.ai.model;
+package com.nylg.zziiaicodemother.ai.model.result;
 
 import dev.langchain4j.model.output.structured.Description;
 import lombok.Data;

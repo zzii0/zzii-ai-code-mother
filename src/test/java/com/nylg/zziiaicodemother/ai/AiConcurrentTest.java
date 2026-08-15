@@ -26,8 +26,8 @@ public class AiConcurrentTest {
             final int index = i + 1;
             threads[i] = Thread.ofVirtual().start(() -> {
                 AiCodeGenTypeRoutingService service = routingServiceFactory.createAiCodeGenTypeRoutingService();
-                var result = service.routeCodeGenType(prompt);
-                log.info("线程 {}: {} -> {}", index, prompt, result.getValue());
+                var result = service.analyzeAppCreate(prompt);
+                log.info("线程 {}: {} -> 名称: {}, 类型: {}", index, prompt, result.getAppName(), result.getCodeGenType().getValue());
             });
         }
         // 等待所有任务完成

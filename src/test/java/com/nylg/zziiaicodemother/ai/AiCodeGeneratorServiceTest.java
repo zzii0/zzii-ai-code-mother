@@ -1,13 +1,11 @@
 package com.nylg.zziiaicodemother.ai;
 
-import com.nylg.zziiaicodemother.ai.model.HtmlCodeResult;
-import com.nylg.zziiaicodemother.ai.model.MultiFileCodeResult;
+import com.nylg.zziiaicodemother.ai.model.result.HtmlCodeResult;
+import com.nylg.zziiaicodemother.ai.model.result.MultiFileCodeResult;
 import jakarta.annotation.Resource;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
-
-import static org.junit.jupiter.api.Assertions.*;
 
 @SpringBootTest
 class AiCodeGeneratorServiceTest {
