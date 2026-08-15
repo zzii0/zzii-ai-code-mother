@@ -1,7 +1,7 @@
 package com.nylg.zziiaicodemother.core.saver;
 
 import cn.hutool.core.util.StrUtil;
-import com.nylg.zziiaicodemother.ai.model.HtmlCodeResult;
+import com.nylg.zziiaicodemother.ai.model.result.HtmlCodeResult;
 import com.nylg.zziiaicodemother.exception.BusinessException;
 import com.nylg.zziiaicodemother.exception.ErrorCode;
 import com.nylg.zziiaicodemother.model.enums.CodeGenTypeEnum;

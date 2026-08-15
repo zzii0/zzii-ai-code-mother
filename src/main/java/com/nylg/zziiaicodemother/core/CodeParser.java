@@ -2,8 +2,8 @@ package com.nylg.zziiaicodemother.core;
 
 import cn.hutool.core.util.StrUtil;
 import cn.hutool.json.JSONUtil;
-import com.nylg.zziiaicodemother.ai.model.HtmlCodeResult;
-import com.nylg.zziiaicodemother.ai.model.MultiFileCodeResult;
+import com.nylg.zziiaicodemother.ai.model.result.HtmlCodeResult;
+import com.nylg.zziiaicodemother.ai.model.result.MultiFileCodeResult;
 
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;

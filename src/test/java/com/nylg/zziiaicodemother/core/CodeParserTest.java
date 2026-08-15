@@ -1,7 +1,7 @@
 package com.nylg.zziiaicodemother.core;
 
-import com.nylg.zziiaicodemother.ai.model.HtmlCodeResult;
-import com.nylg.zziiaicodemother.ai.model.MultiFileCodeResult;
+import com.nylg.zziiaicodemother.ai.model.result.HtmlCodeResult;
+import com.nylg.zziiaicodemother.ai.model.result.MultiFileCodeResult;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.*;

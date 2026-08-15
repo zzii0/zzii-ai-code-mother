@@ -1,7 +1,7 @@
 package com.nylg.zziiaicodemother.core.parser;
 
 import cn.hutool.core.util.StrUtil;
-import com.nylg.zziiaicodemother.ai.model.HtmlCodeResult;
+import com.nylg.zziiaicodemother.ai.model.result.HtmlCodeResult;
 
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;

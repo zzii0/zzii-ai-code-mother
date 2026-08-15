@@ -57,22 +57,17 @@ export function useAppPreview(
 
   /**
    * 生成/修改完成后刷新预览。
-   * Vue 项目需等后端异步 build 完成后再刷新；其它类型立即刷新。
+   * 后端保存已改为异步执行，需等待静态资源更新后再刷新 iframe。
    */
   const refreshPreviewAfterGeneration = async () => {
-    const type = codeGenType() || CodeGenTypeEnum.HTML
-    if (type !== CodeGenTypeEnum.VUE_PROJECT) {
-      await updatePreview()
-      return
-    }
-
-    const token = ++previewRefreshToken
     const baseUrl = getPreviewBaseUrl()
     if (!baseUrl) return
 
+    const token = ++previewRefreshToken
     const previousModified = await fetchResourceLastModified(baseUrl)
-    const maxWaitMs = 120000
-    const intervalMs = 2000
+    const type = codeGenType() || CodeGenTypeEnum.HTML
+    const maxWaitMs = type === CodeGenTypeEnum.VUE_PROJECT ? 120000 : 90000
+    const intervalMs = type === CodeGenTypeEnum.VUE_PROJECT ? 2000 : 1000
     const startedAt = Date.now()
 
     while (Date.now() - startedAt < maxWaitMs) {
@@ -81,14 +76,16 @@ export function useAppPreview(
       if (token !== previewRefreshToken) return
 
       const currentModified = await fetchResourceLastModified(baseUrl)
-      // dist 从无到有，或 Last-Modified 发生变化，说明构建已完成
       if (currentModified && currentModified !== previousModified) {
+        await updatePreview()
+        return
+      }
+      if (!previousModified && currentModified) {
         await updatePreview()
         return
       }
     }
 
-    // 超时也尝试刷新一次（兼容无法读取 Last-Modified 的环境）
     if (token === previewRefreshToken) {
       await updatePreview()
     }

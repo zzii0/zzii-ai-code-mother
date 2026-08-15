@@ -2,14 +2,14 @@ package com.nylg.zziiaicodemother.core.parser;
 
 import cn.hutool.core.util.StrUtil;
 import cn.hutool.json.JSONUtil;
-import com.nylg.zziiaicodemother.ai.model.MultiFileCodeResult;
+import com.nylg.zziiaicodemother.ai.model.result.MultiFileCodeResult;
 
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 // 多文件代码解析器（HTML + CSS + JS）
 public class MultiFileCodeParser implements CodeParser<MultiFileCodeResult> {
-    private static final Pattern HTML_CODE_PATTERN = Pattern.compile("```html\\s*([\\s\\S]*?)```", Pattern.CASE_INSENSITIVE);
-    private static final Pattern CSS_CODE_PATTERN = Pattern.compile("```css\\s*([\\s\\S]*?)```", Pattern.CASE_INSENSITIVE);
+    private static final Pattern HTML_CODE_PATTERN = Pattern.compile("```html\\s*([\\s\\S]*?)(?:```|$)", Pattern.CASE_INSENSITIVE);
+    private static final Pattern CSS_CODE_PATTERN = Pattern.compile("```(?:css|style)\\s*([\\s\\S]*?)(?:```|$)", Pattern.CASE_INSENSITIVE);
     private static final Pattern JS_CODE_PATTERN = Pattern.compile("```(?:js|javascript)\\s*([\\s\\S]*?)(?:```|$)", Pattern.CASE_INSENSITIVE);
     private static final Pattern RAW_HTML_PATTERN = Pattern.compile("(?is)(<!DOCTYPE html[\\s\\S]*?</html>|<html[\\s\\S]*?</html>)");
 
