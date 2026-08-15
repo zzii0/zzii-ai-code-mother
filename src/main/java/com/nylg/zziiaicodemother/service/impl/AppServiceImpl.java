@@ -10,6 +10,8 @@ import com.mybatisflex.spring.service.impl.ServiceImpl;
 import com.nylg.zziiaicodemother.constant.AppConstant;
 import com.nylg.zziiaicodemother.core.AiCodeGeneratorFacade;
 import com.nylg.zziiaicodemother.core.builder.VueProjectBuilder;
+import com.nylg.zziiaicodemother.core.generation.AiGenerationTask;
+import com.nylg.zziiaicodemother.core.generation.AiGenerationTaskRegistry;
 import com.nylg.zziiaicodemother.core.handler.StreamHandlerExecutor;
 import com.nylg.zziiaicodemother.exception.BusinessException;
 import com.nylg.zziiaicodemother.exception.ErrorCode;
@@ -71,6 +73,9 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App> implements AppSe
     @Resource
     private AppVersionService appVersionService;
 
+    @Resource
+    private AiGenerationTaskRegistry aiGenerationTaskRegistry;
+
     /**
      * 调用AI生成代码
      * @param appId 应用ID
@@ -97,10 +102,29 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App> implements AppSe
         //5.在调用AI前，把用户消息保存到对话历史中
         boolean chatMessage = chatHistoryService.addChatMessage(appId, userMessage, ChatHistoryMessageTypeEnum.USER.getValue(), loginUser.getId());
         ThrowUtils.throwIf(!chatMessage, ErrorCode.SYSTEM_ERROR, "用户消息保存失败");
-        //6.调用AI生成代码(流式)
-        Flux<String> contentFlux = aiCodeGeneratorFacade.generateAndSaveCodeStream(userMessage, codeGenTypeEnum, appId);
-        //7.收集AI响应的消息内容，保存到对话历史中
-        return streamHandlerExecutor.doExecute(contentFlux, chatHistoryService, appId, loginUser, codeGenTypeEnum);
+        //6. 注册生成任务，用于支持 POST /app/chat/gen/stop 手动停止
+        AiGenerationTask generationTask = aiGenerationTaskRegistry.register(appId, loginUser.getId());
+        Flux<String> contentFlux = aiCodeGeneratorFacade.generateAndSaveCodeStream(
+                userMessage, codeGenTypeEnum, appId, generationTask);
+        //7. 收集 AI 响应并写入对话历史；绑定 SSE 订阅供停止时 cancel
+        return streamHandlerExecutor.doExecute(contentFlux, chatHistoryService, appId, loginUser, codeGenTypeEnum, generationTask)
+                .doOnSubscribe(generationTask::bindSubscription)
+                // 正常结束或取消后，从注册表移除，避免内存泄漏
+                .doFinally(signal -> aiGenerationTaskRegistry.remove(appId, loginUser.getId()));
+    }
+
+    /**
+     * 停止当前用户在某应用下进行中的 AI 生成。
+     * 仅应用创建者可调用；实际中断逻辑在 AiGenerationTaskRegistry.cancel。
+     */
+    @Override
+    public boolean stopChatGeneration(Long appId, User loginUser) {
+        ThrowUtils.throwIf(appId == null || appId <= 0, ErrorCode.PARAMS_ERROR, "应用ID不能为空");
+        ThrowUtils.throwIf(loginUser == null, ErrorCode.NOT_LOGIN_ERROR, "用户未登录");
+        App app = this.getById(appId);
+        ThrowUtils.throwIf(app == null, ErrorCode.NOT_FOUND_ERROR, "应用不存在");
+        ThrowUtils.throwIf(!app.getUserId().equals(loginUser.getId()), ErrorCode.NO_AUTH_ERROR, "无权限停止该应用的生成");
+        return aiGenerationTaskRegistry.cancel(appId, loginUser.getId());
     }
 
     /**

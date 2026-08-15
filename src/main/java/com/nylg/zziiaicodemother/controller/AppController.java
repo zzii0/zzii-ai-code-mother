@@ -157,6 +157,18 @@ public class AppController {
     }
 
     /**
+     * 停止当前进行中的 AI 生成。
+     * 前端在用户点击「停止」时调用；与关闭 EventSource 配合使用。
+     * 返回 data=true 表示找到了进行中的任务并已触发 cancel。
+     */
+    @PostMapping("/chat/gen/stop")
+    public BaseResponse<Boolean> stopChatGeneration(@RequestParam Long appId, HttpServletRequest request) {
+        ThrowUtils.throwIf(appId == null || appId <= 0, ErrorCode.PARAMS_ERROR, "应用ID错误");
+        User loginUser = userService.getLoginUser(request);
+        return ResultUtils.success(appService.stopChatGeneration(appId, loginUser));
+    }
+
+    /**
      * 创建应用
      *
      * @param appAddRequest 创建应用请求

@@ -9,6 +9,7 @@ import com.nylg.zziiaicodemother.ai.tools.BaseTool;
 import com.nylg.zziiaicodemother.ai.tools.ToolManager;
 import com.nylg.zziiaicodemother.constant.AppConstant;
 import com.nylg.zziiaicodemother.core.builder.VueProjectBuilder;
+import com.nylg.zziiaicodemother.core.generation.AiGenerationTask;
 import com.nylg.zziiaicodemother.model.entity.User;
 import com.nylg.zziiaicodemother.model.enums.ChatHistoryMessageTypeEnum;
 import com.nylg.zziiaicodemother.service.ChatHistoryService;
@@ -21,8 +22,11 @@ import java.util.HashSet;
 import java.util.Set;
 
 /**
- * JSON 消息流处理器
- * 处理 VUE_PROJECT 类型的复杂流式响应，包含工具调用信息
+ * JSON 消息流处理器。
+ * 处理 VUE_PROJECT 类型的复杂流式响应（含工具调用信息）。
+ * 「停止生成」相关：
+ *   正常完成：写入完整对话历史，并异步 build Vue 项目
+ *   用户停止：只保存部分对话，不触发 npm build
  */
 @Slf4j
 @Component
@@ -34,17 +38,13 @@ public class JsonMessageStreamHandler {
 
     /**
      * 处理 TokenStream（VUE_PROJECT）
-     * 解析 JSON 消息并重组为完整的响应格式
-     *
-     * @param originFlux         原始流
-     * @param chatHistoryService 聊天历史服务
-     * @param appId              应用ID
-     * @param loginUser          登录用户
-     * @return 处理后的流
+     * 解析 JSON 消息并重组为完整的响应格式。
+     * 停止时：只保存部分对话历史，不触发 vueProjectBuilder 构建。
      */
     public Flux<String> handle(Flux<String> originFlux,
                                ChatHistoryService chatHistoryService,
-                               long appId, User loginUser) {
+                               long appId, User loginUser,
+                               AiGenerationTask generationTask) {
         // 收集数据用于生成后端记忆格式
         StringBuilder chatHistoryStringBuilder = new StringBuilder();
         // 用于跟踪已经见过的工具ID，判断是否是第一次调用
@@ -56,18 +56,45 @@ public class JsonMessageStreamHandler {
                 })
                 .filter(StrUtil::isNotEmpty) // 过滤空字串
                 .doOnComplete(() -> {
-                    // 流式响应完成后，添加 AI 消息到对话历史
+                    // 已停止：部分历史由 doOnCancel 写入，此处不写完整历史、也不 build
+                    if (generationTask != null && generationTask.isCancelled()) {
+                        return;
+                    }
+                    // 与 doOnCancel 互斥，避免重复落库
+                    if (generationTask != null && !generationTask.tryMarkHistoryPersisted()) {
+                        return;
+                    }
                     String aiResponse = chatHistoryStringBuilder.toString();
                     chatHistoryService.addChatMessage(appId, aiResponse, ChatHistoryMessageTypeEnum.AI.getValue(), loginUser.getId());
-                    //异步构建vue项目
+                    // 仅正常完成时异步构建 Vue 项目
                     String projectPath = AppConstant.CODE_OUTPUT_ROOT_DIR+ "/vue_project_" + appId;
                     vueProjectBuilder.buildProjectAsync(projectPath);
                 })
+                // 用户停止或 SSE 断开：保存部分对话，跳过 build
+                .doOnCancel(() -> savePartialAiMessage(
+                        chatHistoryService, appId, loginUser, chatHistoryStringBuilder, generationTask))
                 .doOnError(error -> {
                     // 如果AI回复失败，也要记录错误消息
                     String errorMessage = "AI回复失败: " + error.getMessage();
                     chatHistoryService.addChatMessage(appId, errorMessage, ChatHistoryMessageTypeEnum.AI.getValue(), loginUser.getId());
                 });
+    }
+
+    /** Vue 模式：停止时保存部分 AI 回复（含工具调用文本），不触发 npm build */
+    private void savePartialAiMessage(ChatHistoryService chatHistoryService,
+                                     long appId,
+                                     User loginUser,
+                                     StringBuilder chatHistoryStringBuilder,
+                                     AiGenerationTask generationTask) {
+        if (generationTask != null && !generationTask.tryMarkHistoryPersisted()) {
+            return;
+        }
+        String aiResponse = chatHistoryStringBuilder.toString();
+        if (StrUtil.isBlank(aiResponse)) {
+            aiResponse = "（已停止生成）";
+        }
+        chatHistoryService.addChatMessage(appId, aiResponse, ChatHistoryMessageTypeEnum.AI.getValue(), loginUser.getId());
+        log.info("Vue 项目 AI 生成已停止，已保存部分对话内容，appId={}", appId);
     }
 
     /**

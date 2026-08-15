@@ -9,6 +9,7 @@ import com.nylg.zziiaicodemother.ai.model.result.MultiFileCodeResult;
 import com.nylg.zziiaicodemother.ai.model.message.AiResponseMessage;
 import com.nylg.zziiaicodemother.ai.model.message.ToolExecutedMessage;
 import com.nylg.zziiaicodemother.ai.model.message.ToolRequestMessage;
+import com.nylg.zziiaicodemother.core.generation.AiGenerationTask;
 import com.nylg.zziiaicodemother.core.parser.CodeParserExecutor;
 import com.nylg.zziiaicodemother.core.saver.CodeFileSaverExecutor;
 import com.nylg.zziiaicodemother.exception.BusinessException;
@@ -27,7 +28,10 @@ import reactor.core.scheduler.Schedulers;
 import java.io.File;
 
 /**
- * 代码生成器外观类
+ * 代码生成器外观类。
+ * <p>
+ * 流式路径（{@link #generateAndSaveCodeStream}）支持「手动停止」：
+ * 通过 {@link AiGenerationTask} 感知取消，停止向前端推流，并跳过异步代码落盘。
  */
 @Slf4j
 @Service
@@ -80,84 +84,136 @@ public class AiCodeGeneratorFacade {
      *
      * @param userMessage     用户提示词
      * @param codeGenTypeEnum 生成类型
-     * @return 保存的目录
+     * @param appId           应用 id
+     * @param generationTask  生成任务上下文，用于支持手动停止；LangGraph 等内部调用可传 null
      */
-    public Flux<String> generateAndSaveCodeStream(String userMessage, CodeGenTypeEnum codeGenTypeEnum, Long appId) {
+    public Flux<String> generateAndSaveCodeStream(String userMessage,
+                                                  CodeGenTypeEnum codeGenTypeEnum,
+                                                  Long appId,
+                                                  AiGenerationTask generationTask) {
         if (codeGenTypeEnum == null) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR, "代码生成类型不能为空");
         }
-        //根据appId创建AI服务实例
         AiCodeGeneratorService aiCodeGeneratorService = aiCodeGeneratorServiceFactory.getAiCodeGeneratorService(appId, codeGenTypeEnum);
-        return switch (codeGenTypeEnum) {
-            case HTML -> {
-                Flux<String> result = aiCodeGeneratorService.generateHtmlCodeStream(userMessage);
-                yield processCodeStream(result, CodeGenTypeEnum.HTML, appId, userMessage, aiCodeGeneratorService);
-            }
-            case MULTI_FILE -> {
-                Flux<String> result = aiCodeGeneratorService.generateMultiFileCodeStream(userMessage);
-                yield processCodeStream(result, CodeGenTypeEnum.MULTI_FILE, appId, userMessage, aiCodeGeneratorService);
-            }
-            case VUE_PROJECT -> {
-                TokenStream tokenStream = aiCodeGeneratorService.generateVueProjectCodeStream(appId, userMessage);
-                yield processTokenStream(tokenStream);
-            }
+        Flux<String> contentFlux = switch (codeGenTypeEnum) {
+            case HTML -> aiCodeGeneratorService.generateHtmlCodeStream(userMessage);
+            case MULTI_FILE -> aiCodeGeneratorService.generateMultiFileCodeStream(userMessage);
+            case VUE_PROJECT -> processTokenStream(
+                    aiCodeGeneratorService.generateVueProjectCodeStream(appId, userMessage), generationTask);
             default -> throw new BusinessException(ErrorCode.SYSTEM_ERROR, "不支持的代码生成类型");
         };
+        if (codeGenTypeEnum == CodeGenTypeEnum.VUE_PROJECT) {
+            return attachGenerationLifecycle(contentFlux, generationTask);
+        }
+        return processCodeStream(contentFlux, codeGenTypeEnum, appId, userMessage, aiCodeGeneratorService, generationTask);
     }
 
     /**
-     * 将 TokenStream 转换为 Flux<String>，并传递工具调用信息
-     *
-     * @param tokenStream TokenStream 对象
-     * @return Flux<String> 流式响应
+     * 将 TokenStream 转换为 Flux（Vue 工程模式）。
+     * <p>
+     * 停止策略：每个回调先检查 generationTask.isCancelled()，为 true 则结束 sink；
+     * 客户端断开连接时 sink.onCancel 会反向标记任务取消。
      */
-    private Flux<String> processTokenStream(TokenStream tokenStream) {
+    private Flux<String> processTokenStream(TokenStream tokenStream, AiGenerationTask generationTask) {
         return Flux.create(sink -> {
-            //AI响应片段
+            // 停止后不再向 SSE 推送，但上游 TokenStream 可能仍在跑（LangChain4j 1.1 限制）
+            Runnable stopStreamingToClient = () -> {
+                if (!sink.isCancelled()) {
+                    sink.complete();
+                }
+            };
             tokenStream.onPartialResponse((String partialResponse) -> {
+                        if (generationTask != null && generationTask.isCancelled()) {
+                            stopStreamingToClient.run();
+                            return;
+                        }
                         AiResponseMessage aiResponseMessage = new AiResponseMessage(partialResponse);
                         sink.next(JSONUtil.toJsonStr(aiResponseMessage));
                     })
-                    //工具调用请求片段
                     .onPartialToolExecutionRequest((index, toolExecutionRequest) -> {
+                        if (generationTask != null && generationTask.isCancelled()) {
+                            stopStreamingToClient.run();
+                            return;
+                        }
                         ToolRequestMessage toolRequestMessage = new ToolRequestMessage(toolExecutionRequest);
                         sink.next(JSONUtil.toJsonStr(toolRequestMessage));
                     })
-                    //工具调用结果片段
                     .onToolExecuted((ToolExecution toolExecution) -> {
+                        if (generationTask != null && generationTask.isCancelled()) {
+                            stopStreamingToClient.run();
+                            return;
+                        }
                         ToolExecutedMessage toolExecutedMessage = new ToolExecutedMessage(toolExecution);
                         sink.next(JSONUtil.toJsonStr(toolExecutedMessage));
                     })
                     .onCompleteResponse((ChatResponse response) -> {
+                        if (generationTask != null && generationTask.isCancelled()) {
+                            stopStreamingToClient.run();
+                            return;
+                        }
                         sink.complete();
                     })
                     .onError((Throwable error) -> {
-                        error.printStackTrace();
+                        if (generationTask != null && generationTask.isCancelled()) {
+                            stopStreamingToClient.run();
+                            return;
+                        }
                         sink.error(error);
                     })
                     .start();
+            // 前端关闭 EventSource 或 subscription.cancel() 时同步标记任务取消
+            sink.onCancel(() -> {
+                if (generationTask != null) {
+                    generationTask.cancel();
+                }
+            });
         });
     }
 
 
     /**
-     * 构建展示流：只负责把 AI 输出实时推给前端，不阻塞响应线程。
-     * 解析、重试、保存放到流结束后的异步任务中执行。
+     * 构建展示流（HTML / MULTI_FILE）：实时推 chunk 给前端，流结束后再异步保存代码。
+     * <p>
+     * 停止相关逻辑：
+     * - takeWhile：取消后不再收集新 chunk
+     * - doOnComplete：已取消则跳过 scheduleAsyncCodeSave
      */
     private Flux<String> processCodeStream(Flux<String> codeStream,
                                            CodeGenTypeEnum codeGenTypeEnum,
                                            Long appId,
                                            String userMessage,
-                                           AiCodeGeneratorService aiCodeGeneratorService) {
+                                           AiCodeGeneratorService aiCodeGeneratorService,
+                                           AiGenerationTask generationTask) {
         StringBuilder stringBuilder = new StringBuilder();
-        return codeStream
-                .doOnNext(stringBuilder::append)
-                .doOnComplete(() -> scheduleAsyncCodeSave(
-                        stringBuilder.toString(),
-                        codeGenTypeEnum,
-                        appId,
-                        userMessage,
-                        aiCodeGeneratorService));
+        return attachGenerationLifecycle(
+                codeStream
+                        // 用户停止后不再向下游传递新的 AI 输出片段
+                        .takeWhile(chunk -> generationTask == null || !generationTask.isCancelled())
+                        .doOnNext(stringBuilder::append)
+                        .doOnComplete(() -> {
+                            // 手动停止时不保存代码文件（保留停止前的版本）
+                            if (generationTask != null && generationTask.isCancelled()) {
+                                log.info("用户已停止生成，跳过代码保存，appId={}", appId);
+                                return;
+                            }
+                            scheduleAsyncCodeSave(
+                                    stringBuilder.toString(),
+                                    codeGenTypeEnum,
+                                    appId,
+                                    userMessage,
+                                    aiCodeGeneratorService,
+                                    generationTask);
+                        })
+                        .doOnCancel(() -> log.info("AI 代码流已取消，appId={}", appId)),
+                generationTask);
+    }
+
+    /** 订阅建立时绑定 Subscription，供停止 API 调用 task.cancel() 中断 SSE */
+    private Flux<String> attachGenerationLifecycle(Flux<String> flux, AiGenerationTask generationTask) {
+        if (generationTask == null) {
+            return flux;
+        }
+        return flux.doOnSubscribe(generationTask::bindSubscription);
     }
 
     /**
@@ -167,13 +223,15 @@ public class AiCodeGeneratorFacade {
                                        CodeGenTypeEnum codeGenTypeEnum,
                                        Long appId,
                                        String userMessage,
-                                       AiCodeGeneratorService aiCodeGeneratorService) {
+                                       AiCodeGeneratorService aiCodeGeneratorService,
+                                       AiGenerationTask generationTask) {
         Mono.fromRunnable(() -> saveParsedCode(
                         completeCode,
                         codeGenTypeEnum,
                         appId,
                         userMessage,
-                        aiCodeGeneratorService))
+                        aiCodeGeneratorService,
+                        generationTask))
                 .subscribeOn(Schedulers.boundedElastic())
                 .subscribe(
                         null,
@@ -183,12 +241,18 @@ public class AiCodeGeneratorFacade {
 
     /**
      * 解析并在必要时重试后保存代码（在后台线程执行）。
+     * 停止生成后不应写入半成品，因此在入口再次检查 cancelled。
      */
     private void saveParsedCode(String completeCode,
                                 CodeGenTypeEnum codeGenTypeEnum,
                                 Long appId,
                                 String userMessage,
-                                AiCodeGeneratorService aiCodeGeneratorService) {
+                                AiCodeGeneratorService aiCodeGeneratorService,
+                                AiGenerationTask generationTask) {
+        if (generationTask != null && generationTask.isCancelled()) {
+            log.info("用户已停止生成，跳过代码保存，appId={}", appId);
+            return;
+        }
         try {
             Object parserResult = CodeParserExecutor.executeParser(completeCode, codeGenTypeEnum);
             if (codeGenTypeEnum == CodeGenTypeEnum.MULTI_FILE) {

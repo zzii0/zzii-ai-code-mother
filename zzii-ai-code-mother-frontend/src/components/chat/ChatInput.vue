@@ -63,10 +63,19 @@
         />
         <div class="input-actions">
           <span v-if="!isOwner" class="input-disabled-hint">暂不可输入</span>
+          <!-- 生成中：显示停止按钮，替代发送按钮 -->
+          <template v-else-if="isGenerating">
+            <a-button danger @click="$emit('stop')">
+              <template #icon>
+                <PauseCircleOutlined />
+              </template>
+              停止
+            </a-button>
+          </template>
+          <!-- 空闲时：正常发送 -->
           <a-button
             v-else
             type="primary"
-            :loading="isGenerating"
             @click="$emit('send')"
           >
             <template #icon>
@@ -81,7 +90,7 @@
 </template>
 
 <script setup lang="ts">
-import { SendOutlined } from '@ant-design/icons-vue'
+import { PauseCircleOutlined, SendOutlined } from '@ant-design/icons-vue'
 import type { ElementInfo } from '@/utils/visualEditor'
 
 defineProps<{
@@ -94,7 +103,10 @@ defineProps<{
 
 const emit = defineEmits<{
   'update:modelValue': [value: string]
+  /** 发送用户消息，开始 AI 生成 */
   send: []
+  /** 停止当前进行中的 AI 生成（由 AppChatPage → useChatStream.stopGeneration） */
+  stop: []
   clearSelection: []
 }>()
 

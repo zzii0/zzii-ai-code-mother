@@ -31,6 +31,7 @@
           :is-generating="isGenerating"
           :selected-element-info="selectedElementInfo"
           @send="sendMessage"
+          @stop="stopGeneration"
           @clear-selection="clearSelectedElement"
         />
       </div>
@@ -167,7 +168,8 @@ const onStreamComplete = async () => {
   await refreshPreviewAfterGeneration()
 }
 
-const { userInput, isGenerating, sendMessage, sendInitialMessage } = useChatStream({
+/** stopGeneration：用户点击「停止」时调用，通知后端并关闭 SSE */
+const { userInput, isGenerating, sendMessage, sendInitialMessage, stopGeneration } = useChatStream({
   appId: () => appId.value,
   messages,
   scrollToBottom,

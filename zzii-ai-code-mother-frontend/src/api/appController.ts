@@ -71,6 +71,23 @@ export async function updateAppByAdmin(
   })
 }
 
+/**
+ * 停止当前进行中的 AI 生成。
+ * 对应后端 POST /app/chat/gen/stop；与关闭 EventSource 配合使用。
+ */
+export async function stopChatGeneration(
+  params: { appId: string | number },
+  options?: { [key: string]: any }
+) {
+  return request<API.BaseResponseBoolean>('/app/chat/gen/stop', {
+    method: 'POST',
+    params: {
+      appId: params.appId,
+    },
+    ...(options || {}),
+  })
+}
+
 /** 此处后端没有提供注释 GET /app/chat/gen/code */
 export async function chatToGenCode(
   // 叠加生成的Param类型 (非body参数swagger默认没有生成对象)

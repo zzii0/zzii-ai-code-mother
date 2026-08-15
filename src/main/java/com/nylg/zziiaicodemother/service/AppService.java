@@ -38,6 +38,17 @@ public interface AppService extends IService<App> {
      * @return
      */
     Flux<String> chatToGenCode(Long appId, String userMessage, User loginUser);
+
+    /**
+ * 停止当前进行中的 AI 生成。
+ * 由 POST /app/chat/gen/stop 调用；仅应用创建者可操作。
+ * 返回 true 表示找到进行中的任务并已触发 cancel。
+ *
+ * @param appId     应用 id
+ * @param loginUser 登录用户
+ * @return 是否成功触发停止
+ */
+    boolean stopChatGeneration(Long appId, User loginUser);
     /**
      * 部署应用
      * @param appId 应用id
