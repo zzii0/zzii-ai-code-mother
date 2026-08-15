@@ -6,6 +6,7 @@ import cn.hutool.core.io.FileUtil;
 import cn.hutool.core.util.RandomUtil;
 import cn.hutool.core.util.StrUtil;
 import com.mybatisflex.core.query.QueryWrapper;
+import com.mybatisflex.core.update.UpdateChain;
 import com.mybatisflex.spring.service.impl.ServiceImpl;
 import com.nylg.zziiaicodemother.constant.AppConstant;
 import com.nylg.zziiaicodemother.core.AiCodeGeneratorFacade;
@@ -24,6 +25,7 @@ import com.nylg.zziiaicodemother.model.enums.ChatHistoryMessageTypeEnum;
 import com.nylg.zziiaicodemother.model.enums.CodeGenTypeEnum;
 import com.nylg.zziiaicodemother.model.vo.AppVO;
 import com.nylg.zziiaicodemother.model.vo.UserVO;
+import com.nylg.zziiaicodemother.service.AppCleanupService;
 import com.nylg.zziiaicodemother.service.AppService;
 import com.nylg.zziiaicodemother.service.AppVersionService;
 import com.nylg.zziiaicodemother.service.ChatHistoryService;
@@ -75,6 +77,9 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App> implements AppSe
 
     @Resource
     private AiGenerationTaskRegistry aiGenerationTaskRegistry;
+
+    @Resource
+    private AppCleanupService appCleanupService;
 
     /**
      * 调用AI生成代码
@@ -286,9 +291,9 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App> implements AppSe
     }
 
     /**
-     * 删除应用时关联删除对话历史
-     * @param id 应用ID
-     * @return 是否删除成功
+     * 删除应用：先清理关联资源（磁盘/Redis/任务），再软删对话历史与应用。
+     * 资源清理为 best-effort，失败只打日志，不阻断软删。
+     * 软删前清空 deployKey，避免唯一索引被软删行长期占用。
      */
     @Override
     public boolean removeById(Serializable id) {
@@ -299,13 +304,39 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App> implements AppSe
         if (appId <= 0) {
             return false;
         }
-        //先删除关联的对话历史
+        // 软删前必须先查出元数据（软删后 getById 会被逻辑删除过滤）
+        App app = this.getById(appId);
+        if (app == null) {
+            return false;
+        }
+
+        // 1. 清理磁盘、Redis 记忆、进行中的生成任务等（不含 COS）
+        try {
+            appCleanupService.cleanupAppResources(app);
+        } catch (Exception e) {
+            log.error("清理应用{}关联资源失败：{}", appId, e.getMessage(), e);
+        }
+
+        // 2. 释放 deployKey 唯一约束，便于后续应用复用（null 不占用 uk）
+        if (StrUtil.isNotBlank(app.getDeployKey())) {
+            try {
+                UpdateChain.of(App.class)
+                        .set(App::getDeployKey, null)
+                        .where(App::getId).eq(appId)
+                        .update();
+            } catch (Exception e) {
+                log.warn("清空应用{}的 deployKey 失败：{}", appId, e.getMessage());
+            }
+        }
+
+        // 3. 软删关联对话历史
         try {
             chatHistoryService.deleteByAppId(appId);
         } catch (Exception e) {
             log.error("删除应用{}关联的对话历史失败：{}", appId, e.getMessage());
         }
-        //删除应用
+
+        // 4. 软删应用本身
         return super.removeById(id);
     }
 

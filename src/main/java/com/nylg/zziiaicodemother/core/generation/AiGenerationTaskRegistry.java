@@ -7,7 +7,6 @@ import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * 进行中的 AI 生成任务注册表（内存级，单机有效）。
- * <p>
  * 职责：把「HTTP 停止请求」和「正在运行的 SSE Flux」关联起来。
  * Key 为 appId:userId，同一用户对同一应用同时只保留一个生成任务。
  */
@@ -50,6 +49,30 @@ public class AiGenerationTaskRegistry {
         task.cancel();
         log.info("已请求停止 AI 生成，appId={}, userId={}", appId, userId);
         return true;
+    }
+
+    /**
+     * 取消某应用下所有进行中的生成任务（删除应用时调用）。
+     *
+     * @return 取消的任务数量
+     */
+    public int cancelByAppId(Long appId) {
+        if (appId == null) {
+            return 0;
+        }
+        String prefix = appId + ":";
+        int count = 0;
+        for (var entry : tasks.entrySet()) {
+            if (entry.getKey().startsWith(prefix)) {
+                entry.getValue().cancel();
+                tasks.remove(entry.getKey(), entry.getValue());
+                count++;
+            }
+        }
+        if (count > 0) {
+            log.info("已按 appId 取消生成任务，appId={}, count={}", appId, count);
+        }
+        return count;
     }
 
     /**

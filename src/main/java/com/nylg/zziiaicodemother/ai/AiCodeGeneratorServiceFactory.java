@@ -135,4 +135,21 @@ public class AiCodeGeneratorServiceFactory {
     private String buildCacheKey(long appId, CodeGenTypeEnum codeGenType) {
         return appId + "_" + codeGenType.getValue();
     }
+
+    /**
+     * 删除应用时失效该 app 相关的 AI 服务缓存。
+     * 若 codeGenType 已知则只失效对应键；否则失效该 appId 下所有类型。
+     */
+    public void invalidateByAppId(long appId, String codeGenType) {
+        CodeGenTypeEnum knownType = CodeGenTypeEnum.getEnumByValue(codeGenType);
+        if (knownType != null) {
+            serviceCache.invalidate(buildCacheKey(appId, knownType));
+            log.info("已失效 AI 服务缓存，appId={}, type={}", appId, knownType.getValue());
+            return;
+        }
+        for (CodeGenTypeEnum type : CodeGenTypeEnum.values()) {
+            serviceCache.invalidate(buildCacheKey(appId, type));
+        }
+        log.info("已失效 AI 服务缓存（全部类型），appId={}", appId);
+    }
 }
