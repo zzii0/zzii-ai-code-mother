@@ -7,6 +7,7 @@ import com.nylg.zziiaicodemother.model.dto.chatHistory.ChatHistoryQueryRequest;
 import com.nylg.zziiaicodemother.model.entity.ChatHistory;
 import com.nylg.zziiaicodemother.model.entity.User;
 import dev.langchain4j.memory.chat.MessageWindowChatMemory;
+import jakarta.servlet.http.HttpServletResponse;
 
 import java.time.LocalDateTime;
 
@@ -61,4 +62,14 @@ public interface ChatHistoryService extends IService<ChatHistory> {
      * @param maxCount 最大数量
      */
     int loadChatHistoryToMemory(Long appId, MessageWindowChatMemory chatMemory, int maxCount);
+
+    /**
+     * 导出应用全部对话历史为 txt 文件（仅创建者可调用）。
+     *
+     * @param appId      应用 ID
+     * @param exportMode 导出模式：full / compact
+     * @param loginUser  当前登录用户
+     * @param response   HTTP 响应
+     */
+    void exportChatHistoryAsTxt(Long appId, String exportMode, User loginUser, HttpServletResponse response);
 }

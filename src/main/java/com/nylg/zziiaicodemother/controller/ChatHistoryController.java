@@ -13,6 +13,7 @@ import com.nylg.zziiaicodemother.model.entity.User;
 import com.nylg.zziiaicodemother.service.UserService;
 import jakarta.annotation.Resource;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.web.bind.annotation.*;
 import com.nylg.zziiaicodemother.model.entity.ChatHistory;
 import com.nylg.zziiaicodemother.service.ChatHistoryService;
@@ -68,6 +69,23 @@ public class ChatHistoryController {
         QueryWrapper queryWrapper = chatHistoryService.getQueryWrapper(chatHistoryQueryRequest);
         Page<ChatHistory> result = chatHistoryService.page(Page.of(pageNum, pageSize), queryWrapper);
         return ResultUtils.success(result);
+    }
+
+    /**
+     * 导出某个应用的全部对话历史为 txt 文件（仅创建者可导出）
+     *
+     * @param appId      应用 ID
+     * @param exportMode 导出模式：full（完整版）/ compact（精简版）
+     * @param request    请求
+     * @param response   响应
+     */
+    @GetMapping("/app/{appId}/export")
+    public void exportAppChatHistory(@PathVariable Long appId,
+                                     @RequestParam(defaultValue = "full") String exportMode,
+                                     HttpServletRequest request,
+                                     HttpServletResponse response) {
+        User loginUser = userService.getLoginUser(request);
+        chatHistoryService.exportChatHistoryAsTxt(appId, exportMode, loginUser, response);
     }
 
 

@@ -14,17 +14,22 @@ import com.nylg.zziiaicodemother.model.entity.App;
 import com.nylg.zziiaicodemother.model.entity.ChatHistory;
 import com.nylg.zziiaicodemother.mapper.ChatHistoryMapper;
 import com.nylg.zziiaicodemother.model.entity.User;
+import com.nylg.zziiaicodemother.exception.BusinessException;
+import com.nylg.zziiaicodemother.model.enums.ChatHistoryExportModeEnum;
 import com.nylg.zziiaicodemother.model.enums.ChatHistoryMessageTypeEnum;
 import com.nylg.zziiaicodemother.service.AppService;
 import com.nylg.zziiaicodemother.service.ChatHistoryService;
+import com.nylg.zziiaicodemother.utils.ChatHistoryTxtExporter;
 import dev.langchain4j.data.message.AiMessage;
 import dev.langchain4j.data.message.UserMessage;
 import dev.langchain4j.memory.chat.MessageWindowChatMemory;
 import jakarta.annotation.Resource;
+import jakarta.servlet.http.HttpServletResponse;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 
+import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -178,6 +183,49 @@ public class ChatHistoryServiceImpl extends ServiceImpl<ChatHistoryMapper, ChatH
             return 0;
         }
 
+    }
+
+    @Override
+    public void exportChatHistoryAsTxt(Long appId, String exportMode, User loginUser, HttpServletResponse response) {
+        ThrowUtils.throwIf(appId == null || appId <= 0, ErrorCode.PARAMS_ERROR, "应用ID不能为空");
+        ThrowUtils.throwIf(loginUser == null, ErrorCode.NOT_LOGIN_ERROR);
+        ChatHistoryExportModeEnum exportModeEnum = ChatHistoryExportModeEnum.getEnumByValue(exportMode);
+        ThrowUtils.throwIf(exportModeEnum == null, ErrorCode.PARAMS_ERROR, "不支持的导出模式");
+
+        App app = appService.getById(appId);
+        ThrowUtils.throwIf(app == null, ErrorCode.NOT_FOUND_ERROR, "应用不存在");
+        if (!app.getUserId().equals(loginUser.getId())) {
+            throw new BusinessException(ErrorCode.NO_AUTH_ERROR, "无权限导出该应用对话记录");
+        }
+
+        List<ChatHistory> historyList = this.list(QueryWrapper.create()
+                .eq(ChatHistory::getAppId, appId)
+                .orderBy(ChatHistory::getCreateTime, true));
+
+        LocalDateTime exportTime = LocalDateTime.now();
+        String markdown = ChatHistoryTxtExporter.buildMarkdown(
+                app.getAppName(), appId, historyList, exportModeEnum, exportTime);
+
+        // 使用 .txt
+        String downloadFileName = "chat_" + appId + ".txt";
+        response.setStatus(HttpServletResponse.SC_OK);
+        response.setCharacterEncoding(StandardCharsets.UTF_8.name());
+        response.setContentType("text/plain; charset=UTF-8");
+        response.setHeader("Cache-Control", "no-store");
+        response.addHeader("Content-Disposition", String.format("attachment; filename=\"%s\"", downloadFileName));
+
+        try {
+            // UTF-8 BOM，便于记事本正确识别中文
+            byte[] bom = new byte[]{(byte) 0xEF, (byte) 0xBB, (byte) 0xBF};
+            byte[] body = markdown.getBytes(StandardCharsets.UTF_8);
+            response.getOutputStream().write(bom);
+            response.getOutputStream().write(body);
+            response.flushBuffer();
+            log.info("导出应用{}对话历史成功，模式：{}，消息数：{}", appId, exportModeEnum.getValue(), historyList.size());
+        } catch (Exception e) {
+            log.error("导出应用{}对话历史失败：{}", appId, e.getMessage(), e);
+            throw new BusinessException(ErrorCode.SYSTEM_ERROR, "导出对话记录失败");
+        }
     }
 
 

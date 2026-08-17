@@ -6,9 +6,11 @@
       :is-owner="isOwner"
       :can-download="canDownloadCode"
       :downloading="downloading"
+      :exporting="exporting"
       :deploying="deploying"
       @show-detail="showAppDetail"
       @download="downloadCode"
+      @export="exportChatHistory"
       @deploy="handleDeploy"
     />
 
@@ -75,6 +77,7 @@ import { useChatHistory } from '@/composables/useChatHistory'
 import { useChatStream } from '@/composables/useChatStream'
 import { useAppPreview } from '@/composables/useAppPreview'
 import { useAppDeploy } from '@/composables/useAppDeploy'
+import { useChatHistoryExport } from '@/composables/useChatHistoryExport'
 import ChatHeaderBar from '@/components/chat/ChatHeaderBar.vue'
 import ChatMessageList from '@/components/chat/ChatMessageList.vue'
 import ChatInput from '@/components/chat/ChatInput.vue'
@@ -193,6 +196,8 @@ const {
   openInNewTab,
   openDeployedSite,
 } = useAppDeploy(() => appId.value, () => canDownloadCode.value)
+
+const { exporting, exportChatHistory } = useChatHistoryExport(() => appId.value)
 
 const handleDeploy = async () => {
   const success = await deployApp()

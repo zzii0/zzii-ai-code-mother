@@ -32,6 +32,23 @@
           下载代码
         </a-button>
       </a-tooltip>
+      <a-tooltip v-if="isOwner" title="导出对话记录为.txt文件">
+        <a-dropdown :disabled="exporting">
+          <a-button type="default" :loading="exporting">
+            <template #icon>
+              <ExportOutlined />
+            </template>
+            导出对话
+            <DownOutlined />
+          </a-button>
+          <template #overlay>
+            <a-menu @click="handleExportMenuClick">
+              <a-menu-item key="full">完整版（.txt）</a-menu-item>
+              <a-menu-item key="compact">精简版（.txt）</a-menu-item>
+            </a-menu>
+          </template>
+        </a-dropdown>
+      </a-tooltip>
       <a-button v-if="isOwner" type="primary" :loading="deploying" @click="$emit('deploy')">
         <template #icon>
           <CloudUploadOutlined />
@@ -45,7 +62,15 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useRouter } from 'vue-router'
-import { ArrowLeftOutlined, CloudUploadOutlined, DownloadOutlined, InfoCircleOutlined } from '@ant-design/icons-vue'
+import type { MenuProps } from 'ant-design-vue'
+import {
+  ArrowLeftOutlined,
+  CloudUploadOutlined,
+  DownOutlined,
+  DownloadOutlined,
+  ExportOutlined,
+  InfoCircleOutlined,
+} from '@ant-design/icons-vue'
 import { formatCodeGenType } from '@/utils/codeGenTypes'
 
 const router = useRouter()
@@ -56,14 +81,22 @@ const props = defineProps<{
   isOwner: boolean
   canDownload: boolean
   downloading: boolean
+  exporting: boolean
   deploying: boolean
 }>()
 
-defineEmits<{
+const emit = defineEmits<{
   showDetail: []
   download: []
+  export: [mode: 'full' | 'compact']
   deploy: []
 }>()
+
+const handleExportMenuClick: MenuProps['onClick'] = ({ key }) => {
+  if (key === 'full' || key === 'compact') {
+    emit('export', key)
+  }
+}
 
 const downloadDisabled = computed(() => !props.isOwner || !props.canDownload)
 
