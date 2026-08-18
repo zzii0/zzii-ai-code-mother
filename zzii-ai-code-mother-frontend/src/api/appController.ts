@@ -241,3 +241,18 @@ export async function rollbackAppVersion(
     ...(options || {}),
   })
 }
+
+/** 原生 HTML / 多文件模式行内编辑 POST /app/inline-edit */
+export async function inlineEditApp(
+  body: API.AppInlineEditRequest,
+  options?: { [key: string]: any }
+) {
+  return request<API.BaseResponseBoolean>('/app/inline-edit', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    data: body,
+    ...(options || {}),
+  })
+}

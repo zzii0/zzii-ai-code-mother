@@ -28,6 +28,7 @@ import com.nylg.zziiaicodemother.model.vo.AppVersionVO;
 import com.nylg.zziiaicodemother.ratelimiter.annotation.RateLimit;
 import com.nylg.zziiaicodemother.ratelimiter.enums.RateLimitType;
 import com.nylg.zziiaicodemother.service.AppVersionService;
+import com.nylg.zziiaicodemother.service.InlineEditService;
 import com.nylg.zziiaicodemother.service.ProjectDownloadService;
 import com.nylg.zziiaicodemother.service.UserService;
 import jakarta.annotation.Resource;
@@ -74,6 +75,20 @@ public class AppController {
 
     @Resource
     private AppVersionService appVersionService;
+
+    @Resource
+    private InlineEditService inlineEditService;
+
+    /**
+     * 原生 HTML / 多文件模式行内编辑
+     */
+    @PostMapping("/inline-edit")
+    public BaseResponse<Boolean> inlineEdit(@RequestBody AppInlineEditRequest appInlineEditRequest,
+                                            HttpServletRequest request) {
+        ThrowUtils.throwIf(appInlineEditRequest == null, ErrorCode.PARAMS_ERROR);
+        User loginUser = userService.getLoginUser(request);
+        return ResultUtils.success(inlineEditService.inlineEdit(appInlineEditRequest, loginUser));
+    }
 
     /**
      * 获取应用版本列表

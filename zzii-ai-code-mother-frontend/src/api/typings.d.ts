@@ -14,6 +14,16 @@ declare namespace API {
     appId?: number
   }
 
+  type AppInlineEditRequest = {
+    /** 雪花 ID 请传字符串，避免 JS Number 精度丢失 */
+    appId?: number | string
+    file?: string
+    selector?: string
+    oldContent?: string
+    newContent?: string
+    innerHtml?: string
+  }
+
   type AppQueryRequest = {
     pageNum?: number
     pageSize?: number

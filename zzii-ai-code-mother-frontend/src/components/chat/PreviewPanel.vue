@@ -16,6 +16,12 @@
           </template>
           {{ isEditMode ? '退出编辑' : '编辑模式' }}
         </a-button>
+        <span
+          v-if="isEditMode && supportsInlineEdit && previewUrl && !showBusyState && !buildError"
+          class="inline-edit-hint"
+        >
+          双击文本可直接修改
+        </span>
         <a-button v-if="previewUrl && !showBusyState && !buildError" type="link" @click="$emit('openInNewTab')">
           <template #icon>
             <ExportOutlined />
@@ -61,11 +67,13 @@ const props = withDefaults(
     isGenerating: boolean
     isOwner: boolean
     isEditMode: boolean
+    supportsInlineEdit?: boolean
     buildPhase?: BuildPhase
     buildStatusText?: string
     buildError?: string
   }>(),
   {
+    supportsInlineEdit: false,
     buildPhase: 'idle',
     buildStatusText: '',
     buildError: '',
@@ -205,5 +213,11 @@ const statusText = computed(() => {
   background-color: #52c41a !important;
   border-color: #52c41a !important;
   color: white !important;
+}
+
+.inline-edit-hint {
+  margin-right: 12px;
+  font-size: 12px;
+  color: #8c8c8c;
 }
 </style>

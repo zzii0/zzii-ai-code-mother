@@ -45,6 +45,7 @@
         :is-generating="isGenerating"
         :is-owner="isOwner"
         :is-edit-mode="isEditMode"
+        :supports-inline-edit="supportsInlineEdit"
         :build-phase="buildPhase"
         :build-status-text="buildStatusText"
         :build-error="buildError"
@@ -83,6 +84,7 @@ import { useChatStream } from '@/composables/useChatStream'
 import { useAppPreview } from '@/composables/useAppPreview'
 import { useAppDeploy } from '@/composables/useAppDeploy'
 import { useChatHistoryExport } from '@/composables/useChatHistoryExport'
+import { CodeGenTypeEnum } from '@/utils/codeGenTypes'
 import ChatHeaderBar from '@/components/chat/ChatHeaderBar.vue'
 import ChatMessageList from '@/components/chat/ChatMessageList.vue'
 import ChatInput from '@/components/chat/ChatInput.vue'
@@ -103,6 +105,10 @@ const messageListRef = ref<InstanceType<typeof ChatMessageList>>()
 const isOwner = computed(() => appInfo.value?.userId === loginUserStore.loginUser.id)
 const isAdmin = computed(() => loginUserStore.loginUser.userRole === 'admin')
 const canDownloadCode = computed(() => !!appInfo.value?.deployKey)
+const supportsInlineEdit = computed(() => {
+  const type = appInfo.value?.codeGenType
+  return type === CodeGenTypeEnum.HTML || type === CodeGenTypeEnum.MULTI_FILE
+})
 
 const {
   messages,
