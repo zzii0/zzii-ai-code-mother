@@ -1,6 +1,7 @@
 package com.nylg.zziiaicodemother.core.handler;
 
 import com.nylg.zziiaicodemother.core.generation.AiGenerationTask;
+import com.nylg.zziiaicodemother.exception.AiStreamErrors;
 import com.nylg.zziiaicodemother.model.entity.User;
 import com.nylg.zziiaicodemother.model.enums.CodeGenTypeEnum;
 import com.nylg.zziiaicodemother.service.ChatHistoryService;
@@ -26,19 +27,23 @@ public class StreamHandlerExecutor {
     private SimpleTextStreamHandler simpleTextStreamHandler;
 
     /**
-     * 根据代码类型选择流处理器，并将 generationTask 传递给具体 Handler。
+     * 根据代码类型选择流处理器，并将 generationTask / userMessage 传递给具体 Handler。
      */
     public Flux<String> doExecute(Flux<String> originFlux,
                                   ChatHistoryService chatHistoryService,
                                   long appId,
                                   User loginUser,
                                   CodeGenTypeEnum codeGenType,
+                                  String userMessage,
                                   AiGenerationTask generationTask) {
         return switch (codeGenType) {
             case VUE_PROJECT ->
-                    jsonMessageStreamHandler.handle(originFlux, chatHistoryService, appId, loginUser, generationTask);
+                    jsonMessageStreamHandler.handle(originFlux, chatHistoryService, appId, loginUser, generationTask)
+                            .onErrorMap(AiStreamErrors::toBusinessException);
             case HTML, MULTI_FILE ->
-                    simpleTextStreamHandler.handle(originFlux, chatHistoryService, appId, loginUser, generationTask);
+                    simpleTextStreamHandler.handle(
+                            originFlux, chatHistoryService, appId, loginUser, codeGenType, userMessage, generationTask)
+                            .onErrorMap(AiStreamErrors::toBusinessException);
         };
     }
 }

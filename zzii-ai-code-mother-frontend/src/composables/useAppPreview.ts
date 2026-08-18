@@ -41,53 +41,42 @@ export function useAppPreview(
     previewUrl.value = `${baseUrl}${baseUrl.includes('?') ? '&' : '?'}t=${Date.now()}`
   }
 
-  const fetchResourceLastModified = async (url: string): Promise<string | null> => {
+  const fetchResourceExists = async (url: string): Promise<boolean> => {
     try {
       const response = await fetch(url, {
         method: 'HEAD',
         cache: 'no-store',
         credentials: 'include',
       })
-      if (!response.ok) return null
-      return response.headers.get('Last-Modified')
+      return response.ok
     } catch {
-      return null
+      return false
     }
   }
 
   /**
    * 生成/修改完成后刷新预览。
-   * 后端保存已改为异步执行，需等待静态资源更新后再刷新 iframe。
+   * save_success / build_success 时会提前调用；done 时再调用一次作为兜底。
    */
   const refreshPreviewAfterGeneration = async () => {
     const baseUrl = getPreviewBaseUrl()
     if (!baseUrl) return
 
     const token = ++previewRefreshToken
-    const previousModified = await fetchResourceLastModified(baseUrl)
-    const type = codeGenType() || CodeGenTypeEnum.HTML
-    const maxWaitMs = type === CodeGenTypeEnum.VUE_PROJECT ? 120000 : 90000
-    const intervalMs = type === CodeGenTypeEnum.VUE_PROJECT ? 2000 : 1000
-    const startedAt = Date.now()
+    await updatePreview()
 
-    while (Date.now() - startedAt < maxWaitMs) {
+    const maxAttempts = 15
+    const intervalMs = 400
+    for (let i = 0; i < maxAttempts; i++) {
       if (token !== previewRefreshToken) return
+      const exists = await fetchResourceExists(baseUrl)
+      if (exists) {
+        if (token === previewRefreshToken) {
+          await updatePreview()
+        }
+        return
+      }
       await sleep(intervalMs)
-      if (token !== previewRefreshToken) return
-
-      const currentModified = await fetchResourceLastModified(baseUrl)
-      if (currentModified && currentModified !== previousModified) {
-        await updatePreview()
-        return
-      }
-      if (!previousModified && currentModified) {
-        await updatePreview()
-        return
-      }
-    }
-
-    if (token === previewRefreshToken) {
-      await updatePreview()
     }
   }
 

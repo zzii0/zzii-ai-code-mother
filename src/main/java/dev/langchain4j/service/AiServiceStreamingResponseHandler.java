@@ -12,6 +12,7 @@ import dev.langchain4j.guardrail.OutputGuardrailRequest;
 import dev.langchain4j.memory.ChatMemory;
 import dev.langchain4j.model.chat.request.ChatRequest;
 import dev.langchain4j.model.chat.response.ChatResponse;
+import dev.langchain4j.model.chat.response.EmptyStreamingChatResponseException;
 import dev.langchain4j.model.chat.response.StreamingChatResponseHandler;
 import dev.langchain4j.model.output.TokenUsage;
 import dev.langchain4j.service.AiServiceContext;
@@ -114,6 +115,10 @@ class AiServiceStreamingResponseHandler implements StreamingChatResponseHandler 
 
     @Override
     public void onCompleteResponse(ChatResponse completeResponse) {
+        if (completeResponse == null) {
+            onError(new EmptyStreamingChatResponseException());
+            return;
+        }
         AiMessage aiMessage = completeResponse.aiMessage();
         addToMemory(aiMessage);
 

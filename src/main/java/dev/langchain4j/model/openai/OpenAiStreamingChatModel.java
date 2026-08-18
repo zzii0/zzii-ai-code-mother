@@ -12,6 +12,7 @@ import dev.langchain4j.model.chat.request.ChatRequest;
 import dev.langchain4j.model.chat.request.ChatRequestParameters;
 import dev.langchain4j.model.chat.request.DefaultChatRequestParameters;
 import dev.langchain4j.model.chat.response.ChatResponse;
+import dev.langchain4j.model.chat.response.EmptyStreamingChatResponseException;
 import dev.langchain4j.model.chat.response.StreamingChatResponseHandler;
 import dev.langchain4j.model.openai.OpenAiChatModelName;
 import dev.langchain4j.model.openai.OpenAiChatRequestParameters;
@@ -139,6 +140,10 @@ public class OpenAiStreamingChatModel implements StreamingChatModel {
                         }
                     }
                     ChatResponse chatResponse = openAiResponseBuilder.build();
+                    if (chatResponse == null) {
+                        withLoggingExceptions(() -> handler.onError(new EmptyStreamingChatResponseException()));
+                        return;
+                    }
                     try {
                         handler.onCompleteResponse(chatResponse);
                     } catch (Exception e) {

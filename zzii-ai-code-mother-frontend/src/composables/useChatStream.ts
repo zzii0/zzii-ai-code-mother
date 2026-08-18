@@ -9,8 +9,10 @@ import type { ElementInfo } from '@/utils/visualEditor'
 interface UseChatStreamOptions {
   appId: () => string | number | undefined
   messages: Ref<ChatMessage[]>
-  scrollToBottom: () => void
-  onStreamComplete: () => void | Promise<void>
+  scrollToBottom: (instant?: boolean) => void
+  onStreamComplete: (result: { previewReady: boolean }) => void | Promise<void>
+  /** 构建/校验成功后立即刷新预览，不必等 SSE done */
+  onPreviewReady?: () => void | Promise<void>
   getSelectedElement: () => ElementInfo | null
   clearSelectedElement: () => void
   exitEditModeIfNeeded: () => void
@@ -18,6 +20,15 @@ interface UseChatStreamOptions {
 
 /** 流式更新节流间隔（毫秒） */
 const STREAM_UPDATE_INTERVAL = 120
+
+export type BuildPhase =
+  | 'idle'
+  | 'generating'
+  | 'building'
+  | 'validating'
+  | 'fixing'
+  | 'success'
+  | 'failed'
 
 /**
  * 当前这一次 SSE 生成的运行时上下文。
@@ -32,16 +43,24 @@ interface ActiveStreamContext {
   fullContent: string
   eventSource: EventSource | null
   flushTimer: ReturnType<typeof setTimeout> | null
+  /** 后处理（Vue 构建 / 原生校验保存）是否最终成功；无后处理时为 true */
+  buildSucceeded: boolean
+  /** 是否进入后处理流水线（Vue 构建或原生校验） */
+  postProcessPipeline: boolean
 }
 
 /**
  * AI 聊天流式生成 composable。
- * 支持：SSE 实时展示、手动停止（调后端 /app/chat/gen/stop + 关闭 EventSource）。
+ * 支持：SSE 实时展示、Vue 构建事件、原生 HTML/多文件校验事件、手动停止。
  */
 export function useChatStream(options: UseChatStreamOptions) {
   const userInput = ref('')
   /** 是否正在生成（控制输入框禁用、显示停止按钮） */
   const isGenerating = ref(false)
+  /** Vue 构建阶段（预览区文案） */
+  const buildPhase = ref<BuildPhase>('idle')
+  const buildStatusText = ref('')
+  const buildError = ref('')
   /** 当前活跃的 SSE 上下文；无生成时为 null */
   const activeStream = ref<ActiveStreamContext | null>(null)
 
@@ -52,6 +71,12 @@ export function useChatStream(options: UseChatStreamOptions) {
     }
   }
 
+  const resetBuildUi = () => {
+    buildPhase.value = 'idle'
+    buildStatusText.value = ''
+    buildError.value = ''
+  }
+
   const handleError = (error: unknown, aiMessageIndex: number) => {
     console.error('生成代码失败：', error)
     options.messages.value[aiMessageIndex].content = '抱歉，生成过程中出现了错误，请重试。'
@@ -59,6 +84,7 @@ export function useChatStream(options: UseChatStreamOptions) {
     options.messages.value[aiMessageIndex].streaming = false
     message.error('生成失败，请重试')
     isGenerating.value = false
+    buildPhase.value = 'failed'
     activeStream.value = null
   }
 
@@ -66,15 +92,24 @@ export function useChatStream(options: UseChatStreamOptions) {
   const finalizeStoppedGeneration = (ctx: ActiveStreamContext) => {
     clearFlushTimer(ctx)
     const aiMessage = options.messages.value[ctx.aiMessageIndex]
-    // 保留已流式展示的内容；若尚未收到任何 chunk，则显示占位提示
     aiMessage.content = ctx.fullContent || aiMessage.content || '（已停止生成）'
     aiMessage.loading = false
     aiMessage.streaming = false
     isGenerating.value = false
+    buildPhase.value = 'idle'
+    buildStatusText.value = ''
     ctx.eventSource?.close()
     activeStream.value = null
-    options.scrollToBottom()
+    options.scrollToBottom(true)
     message.info('已停止生成')
+  }
+
+  const parseBuildEventPayload = (raw: string): Record<string, unknown> => {
+    try {
+      return JSON.parse(raw || '{}') as Record<string, unknown>
+    } catch {
+      return {}
+    }
   }
 
   const generateCode = async (userMessage: string, aiMessageIndex: number) => {
@@ -84,8 +119,13 @@ export function useChatStream(options: UseChatStreamOptions) {
       fullContent: '',
       eventSource: null,
       flushTimer: null,
+      buildSucceeded: true,
+      postProcessPipeline: false,
     }
     activeStream.value = ctx
+    buildPhase.value = 'generating'
+    buildStatusText.value = '正在生成网站...'
+    buildError.value = ''
 
     let lastUpdateTime = 0
     let scrollScheduled = false
@@ -96,11 +136,12 @@ export function useChatStream(options: UseChatStreamOptions) {
       aiMessage.loading = false
       aiMessage.streaming = true
 
+      // 流式输出始终贴底，使用 instant 避免 smooth 跟不上长内容
       if (forceScroll || !scrollScheduled) {
         scrollScheduled = true
         requestAnimationFrame(() => {
           scrollScheduled = false
-          options.scrollToBottom()
+          options.scrollToBottom(true)
         })
       }
     }
@@ -130,12 +171,28 @@ export function useChatStream(options: UseChatStreamOptions) {
       const aiMessage = options.messages.value[aiMessageIndex]
       aiMessage.content = ctx.fullContent
       aiMessage.loading = false
+      options.scrollToBottom(true)
+      const previewReady = !ctx.postProcessPipeline || ctx.buildSucceeded
+      if (ctx.postProcessPipeline && ctx.buildSucceeded) {
+        buildPhase.value = 'success'
+        buildStatusText.value = buildStatusText.value || '已就绪'
+      } else if (ctx.postProcessPipeline && !ctx.buildSucceeded) {
+        buildPhase.value = 'failed'
+      } else {
+        resetBuildUi()
+      }
+      // 先刷新预览再结束 generating，避免预览区闪「占位空白」
+      await options.onStreamComplete({ previewReady })
       isGenerating.value = false
       activeStream.value = null
-      options.scrollToBottom()
-      await options.onStreamComplete()
       aiMessage.streaming = false
-      options.scrollToBottom()
+      options.scrollToBottom(true)
+    }
+
+    const triggerPreviewReady = () => {
+      if (options.onPreviewReady) {
+        void options.onPreviewReady()
+      }
     }
 
     try {
@@ -164,6 +221,134 @@ export function useChatStream(options: UseChatStreamOptions) {
         }
       }
 
+      ctx.eventSource.addEventListener('generation_done', () => {
+        if (ctx.completed) return
+        ctx.postProcessPipeline = true
+        buildPhase.value = 'building'
+        buildStatusText.value = '代码已生成，正在准备预览...'
+        clearFlushTimer(ctx)
+        flushContent(true)
+        options.scrollToBottom(true)
+      })
+
+      ctx.eventSource.addEventListener('build_start', (event: MessageEvent) => {
+        if (ctx.completed) return
+        ctx.postProcessPipeline = true
+        const payload = parseBuildEventPayload(event.data)
+        const attempt = Number(payload.attempt || 1)
+        buildPhase.value = 'building'
+        buildStatusText.value = attempt > 1 ? `正在重新构建（第 ${attempt} 次）...` : '正在构建预览...'
+        buildError.value = ''
+        options.scrollToBottom(true)
+      })
+
+      ctx.eventSource.addEventListener('build_failed', (event: MessageEvent) => {
+        if (ctx.completed) return
+        ctx.postProcessPipeline = true
+        ctx.buildSucceeded = false
+        const payload = parseBuildEventPayload(event.data)
+        const file = String(payload.errorFile || '')
+        const line = payload.errorLine ? `:${payload.errorLine}` : ''
+        const err = String(payload.errorMessage || '构建失败')
+        buildError.value = file ? `${file}${line} — ${err}` : err
+        buildPhase.value = 'building'
+        buildStatusText.value = '构建失败，准备自动修复...'
+        options.scrollToBottom(true)
+      })
+
+      ctx.eventSource.addEventListener('build_fixing', (event: MessageEvent) => {
+        if (ctx.completed) return
+        ctx.postProcessPipeline = true
+        const payload = parseBuildEventPayload(event.data)
+        const file = String(payload.errorFile || '出错文件')
+        buildPhase.value = 'fixing'
+        buildStatusText.value = `正在自动修复 ${file}...`
+        options.scrollToBottom(true)
+      })
+
+      ctx.eventSource.addEventListener('build_success', () => {
+        if (ctx.completed) return
+        ctx.postProcessPipeline = true
+        ctx.buildSucceeded = true
+        buildPhase.value = 'success'
+        buildStatusText.value = '构建成功，正在刷新预览...'
+        buildError.value = ''
+        triggerPreviewReady()
+        options.scrollToBottom(true)
+      })
+
+      ctx.eventSource.addEventListener('build_give_up', (event: MessageEvent) => {
+        if (ctx.completed) return
+        ctx.postProcessPipeline = true
+        ctx.buildSucceeded = false
+        const payload = parseBuildEventPayload(event.data)
+        const file = String(payload.errorFile || '')
+        const err = String(payload.errorMessage || '多次自动修复后仍构建失败')
+        buildPhase.value = 'failed'
+        buildError.value = file ? `${file} — ${err}` : err
+        buildStatusText.value = '自动修复未成功'
+        message.warning('Vue 项目构建失败，请查看对话中的错误信息')
+        options.scrollToBottom(true)
+      })
+
+      // 原生 HTML / 多文件：校验与定向补生成
+      ctx.eventSource.addEventListener('validate_start', () => {
+        if (ctx.completed) return
+        ctx.postProcessPipeline = true
+        buildPhase.value = 'validating'
+        buildStatusText.value = '正在校验生成的代码...'
+        buildError.value = ''
+        options.scrollToBottom(true)
+      })
+
+      ctx.eventSource.addEventListener('validate_failed', (event: MessageEvent) => {
+        if (ctx.completed) return
+        ctx.postProcessPipeline = true
+        ctx.buildSucceeded = false
+        const payload = parseBuildEventPayload(event.data)
+        const file = String(payload.errorFile || '')
+        const err = String(payload.errorMessage || '代码校验未通过')
+        buildError.value = file ? `${file} — ${err}` : err
+        buildPhase.value = 'validating'
+        buildStatusText.value = '校验未通过，准备自动补生成...'
+        options.scrollToBottom(true)
+      })
+
+      ctx.eventSource.addEventListener('artifact_fixing', (event: MessageEvent) => {
+        if (ctx.completed) return
+        ctx.postProcessPipeline = true
+        const payload = parseBuildEventPayload(event.data)
+        const file = String(payload.errorFile || '问题文件')
+        buildPhase.value = 'fixing'
+        buildStatusText.value = `正在自动补生成 ${file}...`
+        options.scrollToBottom(true)
+      })
+
+      ctx.eventSource.addEventListener('save_success', () => {
+        if (ctx.completed) return
+        ctx.postProcessPipeline = true
+        ctx.buildSucceeded = true
+        buildPhase.value = 'success'
+        buildStatusText.value = '校验通过，正在刷新预览...'
+        buildError.value = ''
+        triggerPreviewReady()
+        options.scrollToBottom(true)
+      })
+
+      ctx.eventSource.addEventListener('save_give_up', (event: MessageEvent) => {
+        if (ctx.completed) return
+        ctx.postProcessPipeline = true
+        ctx.buildSucceeded = false
+        const payload = parseBuildEventPayload(event.data)
+        const file = String(payload.errorFile || '')
+        const err = String(payload.errorMessage || '自动补生成后仍未通过校验')
+        buildPhase.value = 'failed'
+        buildError.value = file ? `${file} — ${err}` : err
+        buildStatusText.value = '自动补生成未成功'
+        message.warning('代码校验未通过，请查看对话中的错误信息')
+        options.scrollToBottom(true)
+      })
+
       ctx.eventSource.addEventListener('done', () => {
         if (ctx.completed) return
         ctx.completed = true
@@ -183,6 +368,7 @@ export function useChatStream(options: UseChatStreamOptions) {
           message.error(errorMessage)
           ctx.completed = true
           isGenerating.value = false
+          buildPhase.value = 'failed'
           ctx.eventSource?.close()
           activeStream.value = null
         } catch (parseError) {
@@ -211,20 +397,17 @@ export function useChatStream(options: UseChatStreamOptions) {
    * 手动停止生成。
    * 1) 先调后端 stop API，让服务端 cancel 任务、跳过代码保存
    * 2) 再关闭本地 EventSource，立即停止前端展示更新
-   * 注意：DeepSeek 上游 HTTP 可能仍会跑一会儿（方案 B 的已知限制）
    */
   const stopGeneration = async () => {
     const ctx = activeStream.value
     if (!isGenerating.value || !ctx || ctx.completed) {
       return
     }
-    // 先标记完成，避免后续 SSE done/error 再次走 completeStream
     ctx.completed = true
     try {
       await stopChatGenerationApi({ appId: String(options.appId() || '') })
     } catch (error) {
       console.error('停止生成请求失败：', error)
-      // 即使后端停止失败，前端也要关掉展示流，避免卡住「生成中」状态
     }
     finalizeStoppedGeneration(ctx)
   }
@@ -233,7 +416,7 @@ export function useChatStream(options: UseChatStreamOptions) {
     options.messages.value.push({ type: 'user', content: prompt })
     const aiMessageIndex = options.messages.value.length
     options.messages.value.push({ type: 'ai', content: '', loading: true, streaming: true })
-    options.scrollToBottom()
+    options.scrollToBottom(true)
     isGenerating.value = true
     await generateCode(prompt, aiMessageIndex)
   }
@@ -271,6 +454,9 @@ export function useChatStream(options: UseChatStreamOptions) {
   return {
     userInput,
     isGenerating,
+    buildPhase,
+    buildStatusText,
+    buildError,
     sendMessage,
     sendInitialMessage,
     stopGeneration,

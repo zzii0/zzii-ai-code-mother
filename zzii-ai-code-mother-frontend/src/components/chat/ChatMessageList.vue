@@ -52,18 +52,28 @@ defineEmits<{
 
 const messagesContainer = ref<HTMLElement>()
 
+const scrollToBottom = (instant = false) => {
+  const run = () => {
+    const el = messagesContainer.value
+    if (!el) return
+    el.scrollTop = el.scrollHeight
+    if (!instant) {
+      el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' })
+    }
+  }
+  // 等待 DOM / Markdown 渲染后再滚，双帧兜底长内容
+  nextTick(() => {
+    run()
+    requestAnimationFrame(() => {
+      run()
+      requestAnimationFrame(run)
+    })
+  })
+}
+
 defineExpose({
   messagesContainer,
-  scrollToBottom: (instant = false) => {
-    nextTick(() => {
-      if (messagesContainer.value) {
-        messagesContainer.value.scrollTo({
-          top: messagesContainer.value.scrollHeight,
-          behavior: instant ? 'auto' : 'smooth',
-        })
-      }
-    })
-  },
+  scrollToBottom,
 })
 </script>
 
@@ -130,8 +140,6 @@ defineExpose({
   font-family: inherit;
   font-size: inherit;
   line-height: 1.5;
-  max-height: 400px;
-  overflow-y: auto;
 }
 
 .load-more-container {

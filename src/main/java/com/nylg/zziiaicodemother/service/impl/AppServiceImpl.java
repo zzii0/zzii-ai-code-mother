@@ -112,7 +112,8 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App> implements AppSe
         Flux<String> contentFlux = aiCodeGeneratorFacade.generateAndSaveCodeStream(
                 userMessage, codeGenTypeEnum, appId, generationTask);
         //7. 收集 AI 响应并写入对话历史；绑定 SSE 订阅供停止时 cancel
-        return streamHandlerExecutor.doExecute(contentFlux, chatHistoryService, appId, loginUser, codeGenTypeEnum, generationTask)
+        return streamHandlerExecutor.doExecute(
+                        contentFlux, chatHistoryService, appId, loginUser, codeGenTypeEnum, userMessage, generationTask)
                 .doOnSubscribe(generationTask::bindSubscription)
                 // 正常结束或取消后，从注册表移除，避免内存泄漏
                 .doFinally(signal -> aiGenerationTaskRegistry.remove(appId, loginUser.getId()));

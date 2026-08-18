@@ -9,12 +9,9 @@ public class RetryOutputGuardrail implements OutputGuardrail {
     @Override
     public OutputGuardrailResult validate(AiMessage responseFromLLM) {
         String response = responseFromLLM.text();
-        // 检查响应是否为空或过短
+        // 不限制响应/代码内容长度，仅拒绝空输出与敏感内容
         if (response == null || response.trim().isEmpty()) {
             return reprompt("响应内容为空", "请重新生成完整的内容");
-        }
-        if (response.trim().length() < 10) {
-            return reprompt("响应内容过短", "请提供更详细的内容");
         }
         // 检查是否包含敏感信息或不当内容
         if (containsSensitiveContent(response)) {

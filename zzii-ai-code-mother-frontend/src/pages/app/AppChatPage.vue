@@ -5,12 +5,14 @@
       :code-gen-type="appInfo?.codeGenType"
       :is-owner="isOwner"
       :can-download="canDownloadCode"
+      :can-preview="canPreview"
+      :preview-disabled-tooltip="previewDisabledTooltip"
       :downloading="downloading"
       :exporting="exporting"
       :deploying="deploying"
       @show-detail="showAppDetail"
       @download="downloadCode"
-      @export="exportChatHistory"
+      @export="handleExport"
       @deploy="handleDeploy"
     />
 
@@ -43,6 +45,9 @@
         :is-generating="isGenerating"
         :is-owner="isOwner"
         :is-edit-mode="isEditMode"
+        :build-phase="buildPhase"
+        :build-status-text="buildStatusText"
+        :build-error="buildError"
         @toggle-edit-mode="toggleEditMode"
         @open-in-new-tab="openInNewTab(previewUrl)"
         @iframe-load="onIframeLoad"
@@ -110,6 +115,7 @@ const {
 
 const {
   previewUrl,
+  previewReady,
   isEditMode,
   selectedElementInfo,
   updatePreview,
@@ -167,16 +173,32 @@ const fetchAppInfo = async () => {
   }
 }
 
-const onStreamComplete = async () => {
+const onStreamComplete = async (result: { previewReady: boolean }) => {
+  if (result.previewReady) {
+    await refreshPreviewAfterGeneration()
+  }
+}
+
+const onPreviewReady = async () => {
   await refreshPreviewAfterGeneration()
 }
 
 /** stopGeneration：用户点击「停止」时调用，通知后端并关闭 SSE */
-const { userInput, isGenerating, sendMessage, sendInitialMessage, stopGeneration } = useChatStream({
+const {
+  userInput,
+  isGenerating,
+  buildPhase,
+  buildStatusText,
+  buildError,
+  sendMessage,
+  sendInitialMessage,
+  stopGeneration,
+} = useChatStream({
   appId: () => appId.value,
   messages,
   scrollToBottom,
   onStreamComplete,
+  onPreviewReady,
   getSelectedElement: () => selectedElementInfo.value,
   clearSelectedElement,
   exitEditModeIfNeeded: () => {
@@ -184,6 +206,40 @@ const { userInput, isGenerating, sendMessage, sendInitialMessage, stopGeneration
       toggleEditMode()
     }
   },
+})
+
+/**
+ * 与 PreviewPanel 的 loading/错误/占位态对齐：
+ * 仅当右侧已展示可交互预览时，才允许导出对话与部署。
+ */
+const isPreviewBusy = computed(() => {
+  if (buildError.value && buildPhase.value === 'failed') return false
+  if (isGenerating.value) return true
+  if (['generating', 'building', 'validating', 'fixing'].includes(buildPhase.value)) {
+    return true
+  }
+  return buildPhase.value === 'success' && !previewUrl.value
+})
+
+const canPreview = computed(
+  () =>
+    !!previewUrl.value &&
+    previewReady.value &&
+    !isPreviewBusy.value &&
+    !buildError.value,
+)
+
+const previewDisabledTooltip = computed(() => {
+  if (isGenerating.value || ['generating', 'building', 'validating', 'fixing'].includes(buildPhase.value)) {
+    return '网站正在生成中，请等待预览就绪后再操作'
+  }
+  if (buildError.value) {
+    return '预览未就绪，请修复生成错误后再操作'
+  }
+  if (!previewUrl.value || !previewReady.value) {
+    return '请等待网站预览加载完成后再操作'
+  }
+  return '请等待网站预览就绪后再操作'
 })
 
 const {
@@ -199,7 +255,19 @@ const {
 
 const { exporting, exportChatHistory } = useChatHistoryExport(() => appId.value)
 
+const handleExport = async (mode: 'full' | 'compact') => {
+  if (!canPreview.value) {
+    message.warning(previewDisabledTooltip.value)
+    return
+  }
+  await exportChatHistory(mode)
+}
+
 const handleDeploy = async () => {
+  if (!canPreview.value) {
+    message.warning(previewDisabledTooltip.value)
+    return
+  }
   const success = await deployApp()
   if (success) {
     await fetchAppInfo()

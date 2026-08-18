@@ -32,29 +32,40 @@
           下载代码
         </a-button>
       </a-tooltip>
-      <a-tooltip v-if="isOwner" title="导出对话记录为.txt文件">
-        <a-dropdown :disabled="exporting">
-          <a-button type="default" :loading="exporting">
-            <template #icon>
-              <ExportOutlined />
+      <a-tooltip v-if="isOwner" :title="exportTooltip">
+        <span class="btn-tooltip-wrap">
+          <a-dropdown :disabled="exporting || !canPreview">
+            <a-button type="default" :loading="exporting" :disabled="!canPreview">
+              <template #icon>
+                <ExportOutlined />
+              </template>
+              导出对话
+              <DownOutlined />
+            </a-button>
+            <template #overlay>
+              <a-menu @click="handleExportMenuClick">
+                <a-menu-item key="full">完整版（.txt）</a-menu-item>
+                <a-menu-item key="compact">精简版（.txt）</a-menu-item>
+              </a-menu>
             </template>
-            导出对话
-            <DownOutlined />
-          </a-button>
-          <template #overlay>
-            <a-menu @click="handleExportMenuClick">
-              <a-menu-item key="full">完整版（.txt）</a-menu-item>
-              <a-menu-item key="compact">精简版（.txt）</a-menu-item>
-            </a-menu>
-          </template>
-        </a-dropdown>
+          </a-dropdown>
+        </span>
       </a-tooltip>
-      <a-button v-if="isOwner" type="primary" :loading="deploying" @click="$emit('deploy')">
-        <template #icon>
-          <CloudUploadOutlined />
-        </template>
-        部署
-      </a-button>
+      <a-tooltip v-if="isOwner" :title="deployTooltip">
+        <span class="btn-tooltip-wrap">
+          <a-button
+            type="primary"
+            :loading="deploying"
+            :disabled="!canPreview"
+            @click="$emit('deploy')"
+          >
+            <template #icon>
+              <CloudUploadOutlined />
+            </template>
+            部署
+          </a-button>
+        </span>
+      </a-tooltip>
     </div>
   </div>
 </template>
@@ -80,6 +91,8 @@ const props = defineProps<{
   codeGenType?: string
   isOwner: boolean
   canDownload: boolean
+  canPreview: boolean
+  previewDisabledTooltip?: string
   downloading: boolean
   exporting: boolean
   deploying: boolean
@@ -93,6 +106,7 @@ const emit = defineEmits<{
 }>()
 
 const handleExportMenuClick: MenuProps['onClick'] = ({ key }) => {
+  if (!props.canPreview) return
   if (key === 'full' || key === 'compact') {
     emit('export', key)
   }
@@ -109,6 +123,18 @@ const downloadTooltip = computed(() => {
   }
   return '下载项目代码'
 })
+
+const previewBlockedTooltip = computed(
+  () => props.previewDisabledTooltip || '请等待网站预览就绪后再操作',
+)
+
+const exportTooltip = computed(() =>
+  props.canPreview ? '导出对话记录为 .txt 文件' : previewBlockedTooltip.value,
+)
+
+const deployTooltip = computed(() =>
+  props.canPreview ? '部署应用到云端' : previewBlockedTooltip.value,
+)
 </script>
 
 <style scoped>
@@ -145,6 +171,11 @@ const downloadTooltip = computed(() => {
   display: flex;
   gap: 12px;
   flex-wrap: wrap;
+}
+
+/* 让 disabled 按钮也能触发 tooltip */
+.btn-tooltip-wrap {
+  display: inline-block;
 }
 
 @media (max-width: 768px) {

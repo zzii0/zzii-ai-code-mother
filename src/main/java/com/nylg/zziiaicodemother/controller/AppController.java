@@ -14,6 +14,8 @@ import com.nylg.zziiaicodemother.common.DeleteRequest;
 import com.nylg.zziiaicodemother.common.ResultUtils;
 import com.nylg.zziiaicodemother.constant.AppConstant;
 import com.nylg.zziiaicodemother.constant.UserConstant;
+import com.nylg.zziiaicodemother.core.sse.SseEventCodec;
+import com.nylg.zziiaicodemother.exception.AiStreamErrors;
 import com.nylg.zziiaicodemother.exception.BusinessException;
 import com.nylg.zziiaicodemother.exception.ErrorCode;
 import com.nylg.zziiaicodemother.exception.ThrowUtils;
@@ -140,20 +142,54 @@ public class AppController {
         ThrowUtils.throwIf(userMessage == null || userMessage.isEmpty(), ErrorCode.PARAMS_ERROR, "用户消息错误");
         User loginUser = userService.getLoginUser(request);
         Flux<String> contentFLux = appService.chatToGenCode(appId, userMessage, loginUser);
-        return contentFLux.map(chunk -> {
-            // 将内容包装成 JSON
-            Map<String, String> map = Map.of("d", chunk);
-            String jsonData = JSONUtil.toJsonStr(map);
+        return contentFLux
+                .map(chunk -> toServerSentEvent(chunk))
+                .concatWith(Mono.just(
+                        // 整条流水线结束（含 Vue 构建/修复）
+                        ServerSentEvent.<String>builder()
+                                .event("done")
+                                .data("")
+                                .build()
+                ))
+                .onErrorResume(error -> {
+                    log.error("AI 代码生成流异常, appId={}", appId, error);
+                    int code = error instanceof BusinessException businessException
+                            ? businessException.getCode()
+                            : ErrorCode.SYSTEM_ERROR.getCode();
+                    String message = AiStreamErrors.userMessage(error);
+                    Map<String, Object> errorData = Map.of(
+                            "error", true,
+                            "code", code,
+                            "message", message
+                    );
+                    return Flux.just(
+                            toServerSentEvent(SseEventCodec.encode(SseEventCodec.BUSINESS_ERROR, errorData)),
+                            ServerSentEvent.<String>builder()
+                                    .event("done")
+                                    .data("")
+                                    .build()
+                    );
+                });
+    }
+
+    private ServerSentEvent<String> toServerSentEvent(String chunk) {
+        // Vue 两阶段构建：命名事件（generation_done / build_*）
+        if (SseEventCodec.isEvent(chunk)) {
+            SseEventCodec.ParsedEvent parsed = SseEventCodec.parse(chunk);
+            String eventName = SseEventCodec.BUSINESS_ERROR.equals(parsed.event())
+                    ? "business-error"
+                    : parsed.event();
             return ServerSentEvent.<String>builder()
-                    .data(jsonData)
+                    .event(eventName)
+                    .data(parsed.data())
                     .build();
-        }).concatWith(Mono.just(
-                //发生结束事件
-                ServerSentEvent.<String>builder()
-                        .event("done")
-                        .data("")
-                        .build()
-        ));
+        }
+        // 普通文本块包装成 JSON
+        Map<String, String> map = Map.of("d", chunk);
+        String jsonData = JSONUtil.toJsonStr(map);
+        return ServerSentEvent.<String>builder()
+                .data(jsonData)
+                .build();
     }
 
     /**
